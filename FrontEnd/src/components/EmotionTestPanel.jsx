@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { getApiBaseUrl } from '../services/http';
 import './EmotionTestPanel.css';
 
 const EmotionTestPanel = ({ userId }) => {
@@ -20,7 +21,7 @@ const EmotionTestPanel = ({ userId }) => {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/emotion`, {
+      const response = await fetch(`${getApiBaseUrl()}/emotion`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
