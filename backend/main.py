@@ -37,21 +37,26 @@ log = logging.getLogger("emotion_api")
 
 app = FastAPI(title="Emotion Adaptive Learning - Backend")
 
+VERCEL_ORIGIN = "https://emotion-adaptive.vercel.app"
+
 origins = [
     # Local development
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
-    # Production
-    os.getenv("FRONTEND_URL", "http://localhost:5173"),
+    # Production — Vercel deployment (explicit)
+    VERCEL_ORIGIN,
+    # Production — from env var (custom domain / Vercel preview URLs, etc.)
+    os.getenv("FRONTEND_URL", ""),
 ]
-# Remove any empty strings caused by unset env vars
-origins = [o for o in origins if o]
+# Remove blanks / duplicates
+origins = list(dict.fromkeys(o for o in origins if o))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # covers all preview-deploy URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
