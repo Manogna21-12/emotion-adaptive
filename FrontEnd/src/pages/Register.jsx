@@ -234,23 +234,7 @@ export default function Register() {
                 </div>
               </div>
 
-              <div className="space-y-1.5 pt-2">
-                 <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">Account Type</label>
-                 <div className="grid grid-cols-2 gap-3 mt-1">
-                    <div 
-                      onClick={() => setForm({...form, role: "student"})}
-                      className={`px-4 py-3 rounded-xl border-2 cursor-pointer font-bold text-sm text-center transition-all ${form.role === "student" ? "bg-brand-500/10 border-brand-500 text-brand-500 shadow-inner" : "bg-glass-base border-glass-border text-text-muted hover:bg-glass-hover"}`}
-                    >
-                       Student / Learner
-                    </div>
-                    <div 
-                      onClick={() => setForm({...form, role: "admin"})}
-                      className={`px-4 py-3 rounded-xl border-2 cursor-pointer font-bold text-sm text-center transition-all ${form.role === "admin" ? "bg-cyan-500/10 border-cyan-500 text-cyan-500 shadow-inner" : "bg-glass-base border-glass-border text-text-muted hover:bg-glass-hover"}`}
-                    >
-                       Admin / Teacher
-                    </div>
-                 </div>
-              </div>
+              {/* Role selection removed - strictly Student signup as per request */}
 
               <AnimatePresence>
                 {error && (

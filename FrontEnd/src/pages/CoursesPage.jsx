@@ -5,7 +5,6 @@ import DashboardLayout from "../components/DashboardLayout";
 import CourseCard from "../components/CourseCard";
 import { Loader2, LayoutDashboard, RefreshCcw } from "lucide-react";
 import { motion } from "framer-motion";
-import QuizLearningPopup from "../components/QuizLearningPopup";
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState([]);
@@ -37,7 +36,6 @@ export default function CoursesPage() {
 
   return (
     <DashboardLayout>
-      <QuizLearningPopup />
       <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full pb-10">
         
         <motion.div 

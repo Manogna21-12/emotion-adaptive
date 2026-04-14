@@ -1,309 +1,269 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, HelpCircle, ChevronRight, Trophy } from "lucide-react";
-import { quizzesApi } from "../services/api";
-import { useAuth } from "../contexts/AuthContext";
-import emotionSocketService from "../services/emotionSocketService";
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  X, 
+  HelpCircle, 
+  CheckCircle2, 
+  AlertCircle, 
+  Zap, 
+  Clock,
+  BrainCircuit,
+  MessageSquareQuote,
+  Timer
+} from 'lucide-react';
+import { adaptiveQuizApi } from '../services/api';
+import { Card } from './ui/Card';
 
-/** Normalize API item to { id, question, options: [{ text, isCorrect }] } */
-function normalizeQuizItem(raw) {
-  if (!raw || !raw.question) return null;
-  const id = raw.id ?? raw._id;
-  let options = raw.options || [];
-  if (options.length && typeof options[0] === "string") {
-    const ans = raw.answer;
-    options = options.map((t) => ({
-      text: t,
-      isCorrect: String(t) === String(ans),
-    }));
-  } else {
-    options = options.map((o) => ({
-      text: o.text ?? String(o),
-      isCorrect: Boolean(o.isCorrect),
-    }));
-  }
-  return { id, question: raw.question, options };
-}
-
-function performanceMessage(score, total) {
-  if (total <= 0) return "Keep practicing 💪";
-  if (score === total) return "Excellent 🎉";
-  if (score / total >= 0.5) return "Good 👍";
-  return "Keep practicing 💪";
-}
-
-/**
- * Full interactive quiz modal on Learning (/courses).
- */
-export default function QuizLearningPopup() {
-  const { user } = useAuth();
-  const userId = user?._id || user?.id || "anonymous";
-
-  const [open, setOpen] = useState(false);
+export default function QuizLearningPopup({ 
+  isOpen, 
+  onClose, 
+  courseId, 
+  moduleId, 
+  lessonId, 
+  topic,
+  currentEmotion,
+  focusScore,
+  userId
+}) {
+  const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [quizzes, setQuizzes] = useState([]);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(null);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [difficulty, setDifficulty] = useState('medium');
 
-  const [phase, setPhase] = useState("quiz"); // quiz | results
-  const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [pickedText, setPickedText] = useState(null);
-  const [locked, setLocked] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null);
-  const saveOnceRef = useRef(false);
-
-  const total = quizzes.length;
-  const current = quizzes[index];
-
-  const resetQuizState = useCallback(() => {
-    setPhase("quiz");
-    setIndex(0);
-    setScore(0);
-    setPickedText(null);
-    setLocked(false);
-    setSaveStatus(null);
-  }, []);
-
+  // 1. Determine Difficulty based on Emotion + Focus
   useEffect(() => {
-    setLoading(false); // No initial loading
-
-    const handleRecommendation = (eventData) => {
-      // Handle nested data structures correctly based on how recommendations arrive
-      const payload = eventData?.data || eventData;
+    if (isOpen && !question) {
+      let targetDifficulty = 'medium';
       
-      console.log("[QuizLearningPopup] Recommendation received from socket:", payload);
-      
-      if (payload && payload.content && payload.content.quiz) {
-        console.log("[QuizLearningPopup] Emotion triggered a quiz:", payload.content.quiz);
-        const normalized = normalizeQuizItem(payload.content.quiz);
-        if (normalized) {
-          setQuizzes([normalized]);
-          resetQuizState();
-          setOpen(true);
-        }
+      if (currentEmotion === 'happy') {
+        targetDifficulty = 'hard';
+      } else if (currentEmotion === 'neutral') {
+        targetDifficulty = 'medium';
+      } else if (currentEmotion === 'sad') {
+        targetDifficulty = 'easy';
       }
-    };
-
-    // Listen to possible recommendation socket events
-    emotionSocketService.on('recommendation', handleRecommendation);
-    emotionSocketService.on('personalizedRecommendation', handleRecommendation);
-    
-    // Also attach a window-level fallback in case other components want to trigger it directly
-    window.triggerEmotionQuiz = (quizData) => {
-        const normalized = normalizeQuizItem(quizData);
-        if (normalized) {
-          setQuizzes([normalized]);
-          resetQuizState();
-          setOpen(true);
-        }
-    };
-
-    return () => {
-      emotionSocketService.off('recommendation', handleRecommendation);
-      emotionSocketService.off('personalizedRecommendation', handleRecommendation);
-      delete window.triggerEmotionQuiz;
-    };
-  }, [resetQuizState]);
-
-  const handlePick = useCallback(
-    (optionText, isCorrect) => {
-      if (locked) return;
-      setPickedText(optionText);
-      setLocked(true);
-      if (isCorrect) setScore((prev) => prev + 1);
-    },
-    [locked]
-  );
-
-  const handleNext = useCallback(() => {
-    if (!locked) return;
-    if (index >= total - 1) {
-      setPhase("results");
-      return;
+      
+      setDifficulty(targetDifficulty);
+      fetchQuestion(targetDifficulty);
     }
-    setIndex((i) => i + 1);
-    setPickedText(null);
-    setLocked(false);
-  }, [locked, index, total]);
+  }, [isOpen, currentEmotion, focusScore, question]);
 
-  const handleClose = useCallback(() => {
-    setOpen(false);
-  }, []);
+  const fetchQuestion = async (diff) => {
+    setLoading(true);
+    try {
+      const data = await adaptiveQuizApi.getQuestion({
+        course_id: courseId,
+        module_id: moduleId,
+        lesson_id: lessonId,
+        topic: topic,
+        difficulty: diff
+      });
+      setQuestion(data);
+    } catch (err) {
+      console.error("Failed to fetch adaptive quiz:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    if (phase !== "results" || total === 0) return;
-    if (saveOnceRef.current) return;
-    saveOnceRef.current = true;
-    let cancelled = false;
-    (async () => {
-      try {
-        setSaveStatus("saving");
-        await quizzesApi.submitQuizResult({
-          userId: String(userId),
-          score,
-          totalQuestions: total,
-          timestamp: new Date().toISOString(),
-        });
-        if (!cancelled) setSaveStatus("saved");
-      } catch (e) {
-        console.warn("[QuizLearningPopup] save result skipped/failed:", e);
-        if (!cancelled) setSaveStatus("error");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [phase, score, total, userId]);
+  const handleSubmit = async () => {
+    if (!selectedOption || isSubmitted) return;
 
-  const optionClass = useCallback(
-    (opt) => {
-      const { text, isCorrect } = opt;
-      if (!locked) {
-        return "border-glass-border bg-glass-base hover:border-brand-400 text-root-fg";
-      }
-      if (text === pickedText) {
-        return isCorrect
-          ? "border-emerald-500 bg-emerald-500 text-white shadow-lg"
-          : "border-red-500 bg-red-500 text-white shadow-lg";
-      }
-      if (isCorrect) {
-        return "border-emerald-500 bg-emerald-600/90 text-white shadow-md";
-      }
-      return "border-glass-border bg-glass-base/50 text-text-muted opacity-60";
-    },
-    [locked, pickedText]
-  );
+    const correct = selectedOption === question.correct_answer;
+    setIsCorrect(correct);
+    setIsSubmitted(true);
 
-  const footerHint = useMemo(() => {
-    if (phase === "results") return null;
-    if (!locked) return "Select an answer";
-    return index >= total - 1 ? "Last question — see your results next" : "Tap Next to continue";
-  }, [phase, locked, index, total]);
+    try {
+      await adaptiveQuizApi.submitAttempt({
+        user_id: userId,
+        question_id: question.id,
+        selected_answer: selectedOption,
+        is_correct: correct,
+        emotion: currentEmotion,
+        focus_score: focusScore
+      });
+    } catch (err) {
+      console.error("Failed to submit quiz attempt:", err);
+    }
+  };
 
-  if (loading || !open) return null;
+  const handleNext = () => {
+    setQuestion(null);
+    setSelectedOption(null);
+    setIsSubmitted(false);
+    setIsCorrect(null);
+    setShowExplanation(false);
+  };
 
-  const modal = (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="quiz-popup-title"
-    >
+  const getMotivationMessage = () => {
+    if (difficulty === 'hard') return "Great focus! Let's try a harder one 💪";
+    if (difficulty === 'easy') return "Take it easy, try this simpler question 👍";
+    return "Keep it up! Assessing your understanding...";
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: "spring", damping: 24, stiffness: 320 }}
-        className="relative w-full max-w-lg rounded-3xl border border-glass-border bg-panel-bg shadow-2xl text-root-fg overflow-hidden max-h-[90vh] flex flex-col"
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        className="w-full max-w-2xl"
       >
-        <button
-          type="button"
-          onClick={handleClose}
-          className="absolute right-4 top-4 z-10 rounded-xl p-2 text-text-muted hover:bg-glass-hover hover:text-root-fg transition-colors"
-          aria-label="Close quiz"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <div className="p-8 pt-12 overflow-y-auto flex-1">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="rounded-2xl bg-brand-500/15 p-3 text-brand-500">
-              {phase === "results" ? (
-                <Trophy className="w-6 h-6" />
-              ) : (
-                <HelpCircle className="w-6 h-6" />
-              )}
-            </div>
-            <div>
-              <h2 id="quiz-popup-title" className="text-xl font-black tracking-tight">
-                {phase === "results" ? "Quiz complete" : "Quick check-in"}
-              </h2>
-              {phase === "quiz" && total > 0 && (
-                <p className="text-xs text-text-muted font-semibold">
-                  Question {index + 1} of {total} · Score {score}
-                </p>
-              )}
-            </div>
+        <Card className="overflow-hidden border-2 border-brand-500/30 shadow-2xl bg-panel-bg rounded-[40px]">
+          {/* Progress Bar (Fake but nice) */}
+          <div className="h-2 w-full bg-glass-base overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: loading ? '30%' : '100%' }}
+              className="h-full bg-gradient-to-r from-brand-500 to-cyan-500"
+            />
           </div>
 
-          <AnimatePresence mode="wait">
-            {phase === "quiz" && current ? (
-              <motion.div
-                key={`q-${current.id}-${index}`}
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -16 }}
-                transition={{ duration: 0.2 }}
-              >
-                <p className="text-lg font-bold mb-6 leading-snug">{current.question}</p>
-                <div className="flex flex-col gap-2">
-                  {current.options.map((opt) => (
-                    <button
-                      key={opt.text}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => handlePick(opt.text, opt.isCorrect)}
-                      className={`w-full text-left rounded-2xl border-2 px-4 py-3.5 text-sm font-bold transition-all duration-200 ${optionClass(
-                        opt
-                      )} disabled:cursor-default`}
-                    >
-                      {opt.text}
-                    </button>
-                  ))}
+          <div className="p-8">
+            <div className="flex justify-between items-start mb-8">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-brand-500/10 rounded-2xl text-brand-500">
+                  <BrainCircuit className="w-6 h-6" />
                 </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="results"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center py-4"
+                <div>
+                  <h3 className="text-xl font-black text-root-fg">Emotion-Adaptive Quiz</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-black uppercase text-text-muted tracking-widest">{getMotivationMessage()}</span>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={onClose}
+                className="p-2 hover:bg-glass-hover rounded-full transition-colors"
               >
-                <p className="text-2xl font-black text-brand-500 mb-2">
-                  You scored {score} out of {total}
-                </p>
-                <p className="text-lg font-bold text-root-fg mb-6">
-                  {performanceMessage(score, total)}
-                </p>
-                {saveStatus === "saving" && (
-                  <p className="text-xs text-text-muted font-medium">Saving result…</p>
-                )}
-                {saveStatus === "saved" && (
-                  <p className="text-xs text-emerald-600 font-semibold">Result saved ✓</p>
-                )}
-                {saveStatus === "error" && (
-                  <p className="text-xs text-amber-600 font-medium">Could not save (offline?)</p>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                <X className="w-6 h-6 text-text-muted" />
+              </button>
+            </div>
 
-        <div className="border-t border-glass-border px-8 py-4 bg-glass-base/40 flex items-center justify-between gap-3 shrink-0">
-          <span className="text-xs text-text-muted font-medium truncate">{footerHint}</span>
-          {phase === "quiz" && (
-            <button
-              type="button"
-              disabled={!locked}
-              onClick={handleNext}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition-all hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {index >= total - 1 && locked ? "See results" : "Next"}
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
-          {phase === "results" && (
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-black text-white shadow-md hover:bg-cyan-600"
-            >
-              Done
-            </button>
-          )}
-        </div>
+            {loading ? (
+              <div className="py-20 flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-4 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+                <p className="text-text-muted font-bold animate-pulse">Personalizing your question...</p>
+              </div>
+            ) : question?.error ? (
+              <div className="py-12 text-center">
+                <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-root-fg">No questions found!</h3>
+                <p className="text-text-muted mt-2">Keep studying, we'll try again soon.</p>
+                <button onClick={onClose} className="mt-8 px-8 py-3 bg-brand-500 text-white rounded-2xl font-black">Close</button>
+              </div>
+            ) : question ? (
+              <div className="space-y-8">
+                {/* Question Info */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                      difficulty === 'hard' ? 'bg-orange-500/10 text-orange-500' :
+                      difficulty === 'easy' ? 'bg-green-500/10 text-green-500' :
+                      'bg-brand-500/10 text-brand-500'
+                    }`}>
+                      {difficulty} mode
+                    </span>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-glass-base border border-glass-border">
+                       <Zap className="w-3 h-3 text-yellow-500" />
+                       <span className="text-[10px] font-black text-root-fg uppercase">{currentEmotion} state</span>
+                    </div>
+                  </div>
+                  <h2 className="text-2xl font-black text-root-fg leading-tight">
+                    {question.question}
+                  </h2>
+                </div>
+
+                {/* Options */}
+                <div className="grid grid-cols-1 gap-4">
+                  {question.options.map((option, idx) => {
+                    const isSelected = selectedOption === option;
+                    const isCorrectOption = option === question.correct_answer;
+                    
+                    let bgClass = "bg-glass-base border-glass-border hover:border-brand-500/50";
+                    let textClass = "text-root-fg";
+                    
+                    if (isSubmitted) {
+                      if (isCorrectOption) {
+                        bgClass = "bg-green-500/10 border-green-500 text-green-500 shadow-[0_0_20px_rgba(34,197,94,0.1)]";
+                        textClass = "text-green-500";
+                      } else if (isSelected) {
+                        bgClass = "bg-red-500/10 border-red-500 text-red-500";
+                        textClass = "text-red-500";
+                      } else {
+                        bgClass = "bg-glass-base border-glass-border opacity-50";
+                        textClass = "text-text-muted";
+                      }
+                    } else if (isSelected) {
+                      bgClass = "bg-brand-500/10 border-brand-500 text-brand-500";
+                      textClass = "text-brand-500";
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        disabled={isSubmitted}
+                        onClick={() => setSelectedOption(option)}
+                        className={`group relative flex items-center justify-between p-5 rounded-3xl border-2 transition-all duration-300 transform ${bgClass}`}
+                      >
+                        <span className={`text-lg font-bold ${textClass}`}>{option}</span>
+                        {isSubmitted && isCorrectOption && <CheckCircle2 className="w-6 h-6 text-green-500" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Explanation Section */}
+                {isSubmitted && question.explanation && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-6 bg-brand-500/10 border-l-4 border-brand-500 rounded-r-3xl flex gap-4"
+                  >
+                    <MessageSquareQuote className="w-8 h-8 text-brand-500 shrink-0" />
+                    <div>
+                      <h4 className="text-sm font-black text-brand-500 uppercase tracking-widest mb-1">Deep Insight</h4>
+                      <p className="text-root-fg font-medium leading-relaxed">
+                        {question.explanation}
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Footer Actions */}
+                <div className="pt-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                     <Timer className="w-4 h-4 text-text-muted" />
+                     <span className="text-xs font-bold text-text-muted">Dynamic Assessment active</span>
+                  </div>
+                  
+                  {!isSubmitted ? (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!selectedOption}
+                      className="px-10 py-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-3xl font-black transition-all shadow-xl shadow-brand-500/20 active:scale-95 flex items-center gap-2"
+                    >
+                      Submit Answer <Zap className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={onClose}
+                      className="px-10 py-4 bg-green-500 hover:bg-green-600 text-white rounded-3xl font-black transition-all shadow-xl active:scale-95 flex items-center gap-2"
+                    >
+                      Correct! Resume Video <CheckCircle2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </Card>
       </motion.div>
     </div>
   );
-
-  return createPortal(modal, document.body);
 }

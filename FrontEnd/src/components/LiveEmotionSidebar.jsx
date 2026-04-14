@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useTheme } from '../contexts/ThemeContext';
-import { getApiBaseUrl } from '../services/http';
 import './LiveEmotionSidebar.css';
 
 const LiveEmotionSidebar = ({ userId, className = '' }) => {
@@ -82,7 +81,7 @@ const LiveEmotionSidebar = ({ userId, className = '' }) => {
   // Fetch initial emotion
   const fetchLatestEmotion = useCallback(async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/emotion/${userId}`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/emotion/${userId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -101,7 +100,7 @@ const LiveEmotionSidebar = ({ userId, className = '' }) => {
   useEffect(() => {
     if (!userId) return;
 
-    const socketUrl = getApiBaseUrl();
+    const socketUrl = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
     socketRef.current = io(socketUrl, {
       transports: ['websocket', 'polling'],
       timeout: 20000

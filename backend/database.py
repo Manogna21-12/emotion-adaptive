@@ -24,8 +24,12 @@ lessons_collection = db["lessons"]
 videos_collection = db["videos"]
 emotion_logs_collection = db["emotion_logs"]
 notifications_collection = db["notifications"]
-reports_collection = db["reports"]
 learning_sessions_collection = db["learning_sessions"]
+smart_reader_collection = db["smart_reader"]
+reader_emotion_logs_collection = db["reader_emotion_logs"]
+adaptive_quizzes_collection = db["adaptive_quizzes"]
+quiz_attempts_collection = db["quiz_attempts"]
+feedback_collection = db["feedback"]
 
 # Ensure unique index for login speed
 async def init_db_indexes():
@@ -33,10 +37,14 @@ async def init_db_indexes():
     await emotion_logs_collection.create_index([("user_id", 1), ("timestamp", -1)])
     await emotion_logs_collection.create_index([("userId", 1), ("timestamp", -1)])
     await notifications_collection.create_index([("user_id", 1), ("created_at", -1)])
+    await reader_emotion_logs_collection.create_index([("user_id", 1), ("timestamp", -1)])
+    await feedback_collection.create_index([("user_id", 1), ("created_at", -1)])
+    await feedback_collection.create_index([("course_id", 1), ("lesson_id", 1)])
     
-    # Reports collection indexes
-    await reports_collection.create_index([("user_id", 1), ("generated_at", -1)])
-    await reports_collection.create_index("report_file_path")
-    await reports_collection.create_index([("generated_at", -1)])
-    print("[db] Reports collection indexes created")
+    # Adaptive quiz indexes
+    await adaptive_quizzes_collection.create_index([("course_id", 1), ("difficulty", 1)])
+    await adaptive_quizzes_collection.create_index([("lesson_id", 1), ("difficulty", 1)])
+    await quiz_attempts_collection.create_index([("user_id", 1), ("timestamp", -1)])
+    print("[db] Adaptive quiz and Smart Reader indexes created")
+
 

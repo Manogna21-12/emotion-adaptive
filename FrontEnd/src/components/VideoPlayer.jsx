@@ -1,8 +1,11 @@
-import React, { useRef, useEffect, useState, useContext } from "react";
-import { motion } from "framer-motion";
-import { Activity, Play, Camera, CameraOff } from "lucide-react";
+import React, { useRef, useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Activity, Play, Camera, CameraOff, Zap, AlertTriangle, Coffee } from "lucide-react";
+import LessonFeedbackModal from "./LessonFeedbackModal";
 import { learningApi } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
+import QuizLearningPopup from "./QuizLearningPopup";
+import FrustrationPause from "./FrustrationPause";
 
 export default function VideoPlayer({ lesson, nextLesson }) {
   const { user } = useAuth();
@@ -24,6 +27,15 @@ export default function VideoPlayer({ lesson, nextLesson }) {
   const startTimeRef = useRef(null);
   const timeSpentRef = useRef(0);
   const [timeSpent, setTimeSpent] = useState(0);
+
+  // Adaptive triggers
+  const [adaptiveQuizOpen, setAdaptiveQuizOpen] = useState(false);
+  const [frustrationPauseOpen, setFrustrationPauseOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [isVideoCompleted, setIsVideoCompleted] = useState(false);
+  const emotionDurationRef = useRef({ emotion: 'neutral', start: Date.now() });
+  const quizTriggeredRef = useRef(false);
+  const quizTimerRef = useRef(0); // Track play time for 30s quiz trigger
 
   useEffect(() => {
     if (lesson) {
@@ -124,6 +136,46 @@ export default function VideoPlayer({ lesson, nextLesson }) {
         if (res.emotion !== 'no_face' && res.emotion !== 'error') {
           const titleCaseEmo = res.emotion.charAt(0).toUpperCase() + res.emotion.slice(1);
           setCurrentEmotion(titleCaseEmo);
+          
+          // Adaptive System Logic
+          const now = Date.now();
+          const emotion = res.emotion.toLowerCase();
+          const focus = res.focus || 0;
+
+          if (emotionDurationRef.current.emotion !== emotion) {
+            emotionDurationRef.current = { emotion, start: now };
+          }
+
+          const duration = (now - emotionDurationRef.current.start) / 1000;
+
+          // 1. Mindful Break Trigger (Frustration/Stress > 30s)
+          if (["angry", "fear", "disgust", "stressed"].includes(emotion) && duration > 30) {
+            if (!frustrationPauseOpen) {
+              setFrustrationPauseOpen(true);
+              if (videoRef.current) videoRef.current.pause();
+            }
+          }
+
+          // 2. Adaptive Quiz Triggers
+          // Hard: Happy + Focus > 90 for 30s
+          if (emotion === 'happy' && focus > 90 && duration > 30 && !quizTriggeredRef.current) {
+            setAdaptiveQuizOpen(true);
+            quizTriggeredRef.current = true;
+            if (videoRef.current) videoRef.current.pause();
+          }
+          // Medium: Neutral + Focus > 80 for 60s
+          else if (emotion === 'neutral' && focus > 80 && duration > 60 && !quizTriggeredRef.current) {
+            setAdaptiveQuizOpen(true);
+            quizTriggeredRef.current = true;
+            if (videoRef.current) videoRef.current.pause();
+          }
+          // Easy: Sad for 45s
+          else if (emotion === 'sad' && duration > 45 && !quizTriggeredRef.current) {
+            setAdaptiveQuizOpen(true);
+            quizTriggeredRef.current = true;
+            if (videoRef.current) videoRef.current.pause();
+          }
+
         } else {
           setCurrentEmotion(res.emotion === 'no_face' ? 'No Face' : 'Error');
         }
@@ -196,18 +248,47 @@ export default function VideoPlayer({ lesson, nextLesson }) {
 
   const handleEnded = () => {
     handlePauseOrEnd();
-    if (nextLesson) nextLesson();
+    if (!isVideoCompleted) {
+      setIsVideoCompleted(true);
+      setFeedbackOpen(true);
+      console.log("[VideoPlayer] Video fully completed. Triggering lesson feedback modal...");
+    }
+  };
+
+  const handleFeedbackClose = () => {
+    setFeedbackOpen(false);
+    // After feedback is done (submitted or skipped), proceed to next lesson if available
+    if (nextLesson) {
+      console.log("[VideoPlayer] Feedback handled. Moving to next lesson...");
+      nextLesson();
+    }
   };
 
   // Update time spent every second while playing
   useEffect(() => {
     let interval;
-    if (isPlaying && startTimeRef.current) {
+    if (isPlaying && startTimeRef.current && !adaptiveQuizOpen && !frustrationPauseOpen) {
       interval = setInterval(() => {
         const currentSession = Math.floor((Date.now() - startTimeRef.current) / 1000);
         const total = timeSpentRef.current + currentSession;
         setTimeSpent(total);
         
+        // 30 Seconds Quiz Trigger (Active Play Time)
+        quizTimerRef.current += 1;
+        if (quizTimerRef.current >= 30) {
+          quizTimerRef.current = 0; // Reset for next interval
+          
+          const emotion = currentEmotion.toLowerCase();
+          // Skip if angry/frustrated (handled by frustration logic) or no face
+          if (emotion === 'angry' || emotion === 'frustrated' || emotion === 'no face' || emotion === 'error') {
+            console.log("[Quiz System] Skipping quiz due to state:", emotion);
+          } else {
+            console.log("[Quiz System] 30s trigger reached. Launching quiz...");
+            setAdaptiveQuizOpen(true);
+            if (videoRef.current) videoRef.current.pause();
+          }
+        }
+
         // Poll sync session active duration strictly every 30 seconds to the DB natively
         if (total > 0 && total % 30 === 0 && sessionIdRef.current) {
            learningApi.endSession(sessionIdRef.current, Math.max(1, Math.floor(total / 60))).catch(console.error);
@@ -217,6 +298,19 @@ export default function VideoPlayer({ lesson, nextLesson }) {
     return () => {
       if (interval) clearInterval(interval);
     };
+  }, [isPlaying, adaptiveQuizOpen, frustrationPauseOpen, currentEmotion]);
+
+  // Tab switching protection
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isPlaying) {
+        console.log("[System] Tab switched - Pausing playback");
+        if (videoRef.current) videoRef.current.pause();
+        handlePauseOrEnd();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [isPlaying]);
 
   // Cleanup on unmount or lesson change
@@ -312,7 +406,7 @@ export default function VideoPlayer({ lesson, nextLesson }) {
       
       {/* Hidden processing canvas */}
       <canvas ref={canvasRef} className="hidden" />
-      <canvas ref={overlayCanvasRef} className="hidden" />
+
 
       {/* Metadata Panel */}
       <motion.div 
@@ -351,6 +445,39 @@ export default function VideoPlayer({ lesson, nextLesson }) {
           {lesson.description || "In this module, you will cover essential techniques. Ensure you closely follow the examples and apply the concepts dynamically to maximize retention."}
         </p>
       </motion.div>
+
+      <QuizLearningPopup 
+        isOpen={adaptiveQuizOpen}
+        onClose={() => {
+          setAdaptiveQuizOpen(false);
+          if (videoRef.current) videoRef.current.play();
+        }}
+        courseId={lesson.courseId || "default"}
+        moduleId={lesson.moduleId || "default"}
+        lessonId={lesson.id || lesson._id}
+        topic={lesson.title}
+        currentEmotion={currentEmotion.toLowerCase()}
+        focusScore={timeSpent > 0 ? 85 : 0} // Mocking current focus for now
+        userId={user?.id || user?._id}
+      />
+
+      <FrustrationPause 
+        isOpen={frustrationPauseOpen}
+        onResume={() => {
+          setFrustrationPauseOpen(false);
+          if (videoRef.current) videoRef.current.play();
+          emotionDurationRef.current = { emotion: 'neutral', start: Date.now() };
+        }}
+      />
+
+      <LessonFeedbackModal
+        isOpen={feedbackOpen}
+        onClose={handleFeedbackClose}
+        userId={user?.id || user?._id}
+        courseId={lesson.courseId || "default"}
+        moduleId={lesson.moduleId || "default"}
+        lessonId={lesson.id || lesson._id}
+      />
 
     </div>
   );

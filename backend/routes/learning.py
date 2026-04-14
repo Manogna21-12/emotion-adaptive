@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 from datetime import datetime
 import cv2
 import numpy as np
@@ -9,7 +10,7 @@ import base64
 DeepFace = None
 from bson import ObjectId
 
-from database import courses_collection, modules_collection, lessons_collection, videos_collection, emotion_logs_collection, userstats_collection, learning_sessions_collection
+from database import courses_collection, modules_collection, lessons_collection, videos_collection, emotion_logs_collection, userstats_collection, learning_sessions_collection, feedback_collection
 from datetime import timedelta
 
 router = APIRouter(
@@ -106,6 +107,9 @@ async def get_lessons(module_id: str):
         {
             "_id": 1,
             "moduleId": 1,
+            "module_id": 1,
+            "courseId": 1,
+            "course_id": 1,
             "title": 1,
             "videoUrl": 1,
             "duration": 1,
@@ -117,10 +121,14 @@ async def get_lessons(module_id: str):
 
     lessons = []
     for d in docs:
+        cid = d.get("courseId") or d.get("course_id")
+        mid = d.get("moduleId") or d.get("module_id") or module_id
+        
         lessons.append(
             {
                 "id": str(d["_id"]),
-                "moduleId": _as_str_id(d.get("moduleId", module_id)),
+                "courseId": _as_str_id(cid),
+                "moduleId": _as_str_id(mid),
                 "title": d.get("title", ""),
                 "videoUrl": d.get("videoUrl"),
                 "duration": d.get("duration"),
@@ -381,6 +389,25 @@ async def log_emotion(req: EmotionLogRequest):
     except Exception as e:
         print(f"[ERROR] Failed to insert emotion log into MongoDB: {e}")
         return {"message": "Error logging emotion", "error": str(e)}
+
+class FeedbackRequest(BaseModel):
+    user_id: str
+    course_id: str
+    module_id: str
+    lesson_id: str
+    rating: int = Field(..., ge=1, le=5)
+    understanding_level: str
+    comment: Optional[str] = None
+
+@router.post("/feedback")
+async def submit_feedback(fb: FeedbackRequest):
+    try:
+        data = fb.dict()
+        data["created_at"] = datetime.utcnow()
+        await feedback_collection.insert_one(data)
+        return {"success": True, "message": "Feedback submitted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/start-session")
 async def start_session(req: SessionStartRequest):
@@ -1082,3 +1109,37 @@ async def get_reports_sessions(user_id: str):
 #         print(f"ERROR generating PDF: {e}")
 #         return {"error": str(e)}
 
+@router.get("/learning-stats/{user_id}")
+async def get_learning_stats(user_id: str):
+    """Aggregated stats for the learning module (Task 9)."""
+    match = {"user_id": user_id}
+    
+    # Fetch all emotion logs for user (learning only - usually filtered by lesson_id existence)
+    cursor = emotion_logs_collection.find({**match, "lesson_id": {"$exists": True}}).sort("timestamp", -1)
+    logs = await cursor.to_list(length=1000)
+    
+    if not logs:
+        return {
+            "avg_focus": 0,
+            "total_lessons": 0,
+            "status": "No activity yet",
+            "emotion_distribution": {}
+        }
+    
+    avg_focus = sum(log.get("focus", 0) for log in logs) / len(logs)
+    unique_lessons = len({str(log.get("lesson_id")) for log in logs})
+    
+    # Emotion distribution
+    dist = {}
+    for log in logs:
+        emo = log.get("emotion", "neutral")
+        dist[emo] = dist.get(emo, 0) + 1
+        
+    return {
+        "avg_focus": round(avg_focus, 1),
+        "total_lessons": unique_lessons,
+        "emotion_distribution": dist,
+        "status": "Focusing" if avg_focus > 60 else "Needs improvement"
+    }
+
+# Original timeline and dashboard functions follow...

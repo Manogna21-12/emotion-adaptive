@@ -1,8 +1,8 @@
-/**
- * ULTRA-OPTIMIZED API CLIENT
- * Features: React Query integration, optimistic updates, caching, batch requests
- * Performance: <100ms perceived latency
- */
+/*
+ULTRA-OPTIMIZED API CLIENT
+Features: React Query integration, optimistic updates, caching, batch requests
+Performance: <100ms perceived latency
+*/
 
 import axios from "axios";
 
@@ -56,8 +56,8 @@ export const apiKeys = {
   dashboardEmotions: (userId) => ["dashboard", "emotions", userId],
   dashboardTimeline: (userId) => ["dashboard", "timeline", userId],
   progress: (userId) => ["progress", userId],
-  reports: (userId) => ["reports", userId],
-  reportsSummary: (userId) => ["reports", "summary", userId],
+  reader: (userId) => ["reader", userId],
+  readerArticles: () => ["reader", "articles"],
   user: (userId) => ["user", userId],
 };
 
@@ -96,14 +96,19 @@ export const optimizedApi = {
     return response.data;
   },
 
-  // Reports APIs
-  getReportsSummary: async (userId) => {
-    const response = await apiClient.get(`/reports/summary/${userId}`);
+  // Smart Reader APIs
+  getArticles: async () => {
+    const response = await apiClient.get("/reader/articles");
     return response.data;
   },
 
-  getUserReports: async (userId) => {
-    const response = await apiClient.get(`/reports/${userId}`);
+  getArticle: async (id) => {
+    const response = await apiClient.get(`/reader/article/${id}`);
+    return response.data;
+  },
+
+  trackReaderEmotion: async (data) => {
+    const response = await apiClient.post("/reader/track-emotion", data);
     return response.data;
   },
 
@@ -119,7 +124,6 @@ export const optimizedApi = {
       { endpoint: "dashboard/summary", params: { user_id: userId } },
       { endpoint: "dashboard/emotions", params: { user_id: userId } },
       { endpoint: "progress", params: { user_id: userId } },
-      { endpoint: "reports/summary", params: { user_id: userId } },
     ];
     
     const response = await apiClient.post("/batch", requests);
@@ -206,11 +210,11 @@ export const optimisticUpdates = {
     return updatedData;
   },
 
-  // Update reports data instantly
-  updateReportsData: (userId, newReports) => {
-    const cacheKey = `cache_reports_${userId}`;
+  // Update reader session data instantly
+  updateReaderData: (userId, newData) => {
+    const cacheKey = `cache_reader_${userId}`;
     const existingData = localStorageCache.get(cacheKey) || {};
-    const updatedData = { ...existingData, ...newReports };
+    const updatedData = { ...existingData, ...newData };
     localStorageCache.set(cacheKey, updatedData);
     return updatedData;
   },

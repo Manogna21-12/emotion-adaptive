@@ -10,12 +10,13 @@ import {
   LazyWrapper,
   LazyStudentDashboard,
   LazyAdminDashboard,
-  LazyReports,
+  LazyReader,
   LazyProgress,
   LazyProfile,
   LazyCoursesPage,
   LazyModulesPage,
-  LazyLessonsPage
+  LazyLessonsPage,
+  LazyLessonView
 } from "./components/LazyComponents";
 
 // Eagerly loaded components (critical for initial load)
@@ -119,11 +120,11 @@ function App() {
               />
               
               <Route
-                path="/reports"
+                path="/reader"
                 element={
                   <ProtectedRoute>
                     <LazyWrapper>
-                      <LazyReports />
+                      <LazyReader />
                     </LazyWrapper>
                   </ProtectedRoute>
                 }
@@ -157,6 +158,17 @@ function App() {
                   <ProtectedRoute>
                     <LazyWrapper>
                       <LazyLessonsPage />
+                    </LazyWrapper>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/lesson/:courseName"
+                element={
+                  <ProtectedRoute>
+                    <LazyWrapper>
+                      <LazyLessonView />
                     </LazyWrapper>
                   </ProtectedRoute>
                 }

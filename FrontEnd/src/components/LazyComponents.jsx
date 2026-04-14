@@ -31,8 +31,8 @@ export const LazyAdminDashboard = lazy(() =>
   }))
 );
 
-export const LazyReports = lazy(() => 
-  import('../pages/Reports').then(module => ({
+export const LazyReader = lazy(() => 
+  import('../pages/SmartReader').then(module => ({
     default: module.default
   }))
 );
@@ -88,9 +88,9 @@ export const LazyWrapper = ({ children, fallback }) => (
 
 // Preload function for critical components
 export const preloadCriticalComponents = () => {
-  // Preload dashboard components
+  // Preload dashboard and essential components
   import('../pages/StudentDashboard');
-  import('../pages/Reports');
+  import('../pages/SmartReader');
   import('../pages/Progress');
 };
 

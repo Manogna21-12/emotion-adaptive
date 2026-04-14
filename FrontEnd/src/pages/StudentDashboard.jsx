@@ -6,7 +6,7 @@ import { Zap, Clock, BrainCircuit, PlayCircle, TrendingUp, Sparkles, Activity, F
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Bar } from "recharts";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { dashboardApi, learningApi, reportsApi, streakApi } from "../services/api";
+import { dashboardApi, learningApi, streakApi } from "../services/api";
 import { useStreakTracker } from "../hooks/useStreakTracker";
 import MinimalStreakWidget, { MetricCard } from "../components/StreakWidget";
 
@@ -57,6 +57,7 @@ export default function StudentDashboard() {
 
   const [userInfo, setUserInfo] = React.useState(null);
   const [summary, setSummary] = React.useState(null);
+  const [stats, setStats] = React.useState(null);
   const [emotionLogs, setEmotionLogs] = React.useState([]);
   const [timelineData, setTimelineData] = React.useState([]);
   const [emotionImpact, setEmotionImpact] = React.useState(null);
@@ -95,7 +96,7 @@ export default function StudentDashboard() {
         console.log("🔄 Fetching dashboard data...");
 
         // Use dashboard API for real-time data + statistics from reports API
-        const [summary, emotions, timeline, emotionImpact, liveEmotion, u, notifs, stats] = await Promise.all([
+        const [summary, emotions, emotionStats, impact, liveEmotion, u, notifs, progress] = await Promise.all([
           dashboardApi.getSummary(userId).catch((err) => {
             console.error("Dashboard summary API error:", err);
             return {
@@ -106,13 +107,13 @@ export default function StudentDashboard() {
               cognitive_state: "Neutral"
             };
           }),
-          dashboardApi.getEmotions(userId).catch((err) => {
+          dashboardApi.getEmotionLogs(userId).catch((err) => {
             console.error("Dashboard emotions API error:", err);
             return [];
           }),
-          dashboardApi.getTimeline(userId).catch((err) => {
-            console.error("Dashboard timeline API error:", err);
-            return { timeline: [] };
+          dashboardApi.getDashboardStats(userId).catch((err) => {
+            console.error("Dashboard stats API error:", err);
+            return { today_focus: 0, topics_mastered: 0, timeline: [] };
           }),
           dashboardApi.getEmotionImpact(userId).catch((err) => {
             console.error("Emotion impact API error:", err);
@@ -130,26 +131,22 @@ export default function StudentDashboard() {
             console.error("Notifications API error:", err);
             return [];
           }),
-          reportsApi.getSummary(userId).catch((err) => {
-             console.error("Stats API error:", err);
-             return { total_time_spent: 0, current_streak: 0, total_sessions: 0 };
+          dashboardApi.getUserProgress(userId).catch((err) => {
+            console.error("User progress API error:", err);
+            return { topics_mastered: 0 };
           })
         ]);
 
         if (cancelled) return;
         
-        console.log("📊 Dashboard data received:", { summary, stats, emotions, timeline, emotionImpact, liveEmotion });
+        console.log("📊 Dashboard data received:", { summary, emotions, emotionStats, impact, liveEmotion, progress });
         
-        // Merge stats into summary for UI display
-        setSummary({
-          ...summary,
-          time_spent_minutes: stats.total_time, // Use SQL cumulative time
-          current_streak: stats.current_streak, // Use SQL streak
-          total_sessions: stats.sessions
-        });
+        // Use summary data directly
+        setSummary(summary);
+        setStats(emotionStats);
         setEmotionLogs(emotions);
-        setTimelineData(timeline.timeline || []);
-        setEmotionImpact(emotionImpact);
+        setTimelineData(emotionStats.timeline || []);
+        setEmotionImpact(impact);
         setCurrentEmotion(liveEmotion);
         setUserInfo(u);
         setNotifications(notifs || []);
@@ -198,14 +195,24 @@ export default function StudentDashboard() {
     };
   }, [user]);
 
+  if (loading || !stats) {
+    return (
+      <DashboardLayout>
+        <div className="h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const metrics = {
     name: userInfo?.name || user?.name || "",
     emotion: currentEmotion?.emotion || "neutral",
     focusLive: currentEmotion?.focus || 0,
-    focusScore: summary?.focus_score_today || 0,
+    focusScore: stats?.today_focus || 0,
     timeSpent: summary?.time_spent_minutes || 0,
     streak: summary?.current_streak || 0,
-    topics: summary?.lessons_completed || 0,
+    topics: stats?.topics_mastered || 0,
     cognitive_state: summary?.cognitive_state || "Neutral",
   };
 
@@ -226,10 +233,9 @@ export default function StudentDashboard() {
   };
 
   const chartData = (timelineData || [])
-    .filter((l) => typeof l.focus === "number" || typeof l.focus === "string")
     .map((l) => ({
-      time: l.time || "",
-      focus: Number(l.focus) || 0,
+      time: l.timestamp || "",
+      focus: Number(l.focus_score) || 0,
       emotion: getEmotionScore(l.emotion),
       emotionLabel: l.emotion || "neutral"
     }));

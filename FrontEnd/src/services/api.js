@@ -89,40 +89,27 @@ export const learningApi = {
     return response.data;
   },
 
-  // Reports APIs
-  getReportsSummary: async (userId) => {
-    const response = await http.get(`/reports/summary/${userId}`);
-    return response.data;
-  },
-  getReportsHeatmap: async (userId) => {
-    const response = await http.get(`/reports/heatmap/${userId}`);
-    return response.data;
-  },
-  getReportsSessions: async (userId) => {
-    const response = await http.get(`/reports/sessions/${userId}`);
-    return response.data;
-  },
-
-  // PDF Download API
-  downloadReport: async (userId) => {
-    const response = await http.post(`/reports/download/${userId}`, null, { responseType: "blob" });
-    return response;
-  },
-
-  // New Reports System APIs
-  generateReport: async (userId) => {
-    const response = await http.post(`/reports/generate/${userId}`);
-    return response.data;
-  },
-  getUserReports: async (userId) => {
-    const response = await http.get(`/reports/${userId}`);
-    return response.data;
-  },
-  downloadReportFile: async (reportId) => {
-    const response = await http.get(`/reports/download/${reportId}`, {
-      responseType: 'blob'
+  // Session Tracking
+  startSession: async (userId, courseId, lessonId) => {
+    const response = await http.post(`${API_BASE_URL}/start-session`, {
+      user_id: userId,
+      course_id: courseId,
+      lesson_id: lessonId
     });
-    return response;
+    return response.data;
+  },
+
+  endSession: async (sessionId, duration) => {
+    const response = await http.post(`${API_BASE_URL}/end-session`, {
+      session_id: sessionId,
+      duration_minutes: duration
+    });
+    return response.data;
+  },
+
+  submitFeedback: async (feedbackData) => {
+    const response = await http.post(`${API_BASE_URL}/feedback`, feedbackData);
+    return response.data;
   }
 };
 
@@ -155,6 +142,18 @@ export const dashboardApi = {
     const response = await http.get(`/notifications/${userId}`);
     return response.data;
   },
+  getDashboardStats: async (userId) => {
+    const response = await http.get(`/api/dashboard-stats`, { params: { user_id: userId } });
+    return response.data;
+  },
+  getEmotionLogs: async (userId) => {
+    const response = await http.get(`/api/emotion_logs`, { params: { user_id: userId } });
+    return response.data;
+  },
+  getUserProgress: async (userId) => {
+    const response = await http.get(`/api/user_progress`, { params: { user_id: userId } });
+    return response.data;
+  },
 };
 
 export const progressApi = {
@@ -168,45 +167,60 @@ export const progressApi = {
   },
 };
 
-export const reportsApi = {
-  getSummary: async (userId) => {
-    const response = await http.get(`/reports/${userId}`);
-    console.log("📊 API response (getSummary):", response.data);
+// ─── Smart Reader API ────────────────────────────────────────────────────────
+export const smartReaderApi = {
+  getArticles: async () => {
+    const response = await http.get('/reader/articles');
     return response.data;
   },
-  logLogin: async (userId) => {
-    console.log(`🔑 [HTTP] Log Login: user=${userId}`);
-    const response = await http.post(`/reports/log-login`, { user_id: userId, session_duration: 0 });
+  trackEmotion: async (data) => {
+    const response = await http.post('/reader/track-emotion', data);
     return response.data;
   },
-  getHistory: async (userId) => {
-    const response = await http.get(`/reports/history/${userId}`);
+  trackReaderEmotion: async (payload) => {
+    const response = await http.post('/reader/api/reader-emotion', payload);
     return response.data;
   },
-  trackSession: async (userId, minutes) => {
-    console.log(`⏱️ [HTTP] Track Session: user=${userId}, minutes=${minutes}`);
-    const response = await http.post(`/reports/track-session`, { user_id: userId, session_duration: minutes });
-    console.log("🏁 API response (trackSession):", response.data);
+  getStats: async (userId, documentId) => {
+    const response = await http.get(`/reader/stats/${userId}/${documentId}`);
     return response.data;
   },
-  generateSnapshot: async (userId, fileType = "pdf") => {
-    const response = await http.post(`/reports/generate`, { user_id: userId, file_type: fileType });
-    return response.data;
-  },
-  downloadSnapshot: async (reportId, fileType = "pdf") => {
-    const response = await http.get(`/reports/download/${reportId}`, {
-      params: { file_type: fileType },
-      responseType: "blob",
+  getReaderStats: async (userId, documentId) => {
+    const response = await http.get(`/reader/api/reader-stats`, {
+        params: { user_id: userId, document_id: documentId }
     });
-    return response;
+    return response.data;
   },
-  generateReportDirect: async (userId) => {
-    console.log(`📄 [HTTP] Direct PDF Generation for user=${userId}`);
-    const response = await http.get(`/reports/generate-report/${userId}`, {
-      responseType: "blob",
-    });
-    return response;
+  seed: async () => {
+    const response = await http.post('/reader/seed');
+    return response.data;
+  }
+};
+
+export const statsApi = {
+  getLearningStats: async (userId) => {
+    const response = await http.get(`/learning/learning-stats/${userId}`);
+    return response.data;
   },
+  getDashboardSummary: async (userId) => {
+    const response = await http.get(`/dashboard/summary/${userId}`);
+    return response.data;
+  }
+};
+
+// Helper to convert Google Drive sharing links to embeddable preview links
+export const convertDriveLink = (url) => {
+  if (!url) return "";
+  if (url.includes('drive.google.com')) {
+    if (url.includes('/view')) {
+      return url.replace('/view', '/preview');
+    }
+    if (url.includes('id=')) {
+      const id = url.split('id=')[1].split('&')[0];
+      return `https://drive.google.com/file/d/${id}/preview`;
+    }
+  }
+  return url;
 };
 
 // ─── Streak & Daily Time Tracking API ─────────────────────────────────────────
@@ -295,6 +309,17 @@ export const notificationsApi = {
     });
     return response.data;
   },
+};
+
+export const adaptiveQuizApi = {
+  getQuestion: async (params) => {
+    const response = await http.get('/api/adaptive/quiz', { params });
+    return response.data;
+  },
+  submitAttempt: async (payload) => {
+    const response = await http.post('/api/adaptive/quiz-attempt', payload);
+    return response.data;
+  }
 };
 
 export const quizzesApi = {

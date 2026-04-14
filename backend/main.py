@@ -11,11 +11,12 @@ from dotenv import load_dotenv
 from routes.auth import router as auth_router, login as auth_login
 from routes.learning import router as learning_router, catalog_router as catalog_learning_router
 from routes.dashboard import router as dashboard_router
-from routes.reports import router as reports_router
+from routes.smart_reader import router as reader_router
 from routes.progress_pg import router as progress_router
 from routes.streak import router as streak_router
 from routes.notifications import router as notifications_router, api_notifications_router
 from routes.quizzes import router as quizzes_router
+from routes.adaptive_quizzes import router as adaptive_quizzes_router
 from database import init_db_indexes
 from models import UserLogin
 import config  # Import config to initialize cloudinary
@@ -40,10 +41,10 @@ origins = [
     # Local development
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    # Production (Vercel — update VITE_FRONTEND_URL in Render env vars to match your exact domain)
-    os.getenv("FRONTEND_URL", "https://emotion-adaptive.vercel.app"),
-    # Allow wildcard subdomains on vercel.app in preview deployments
-    "https://emotion-adaptive-main.vercel.app",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    # Production
+    os.getenv("FRONTEND_URL", "http://localhost:5173"),
 ]
 # Remove any empty strings caused by unset env vars
 origins = [o for o in origins if o]
@@ -78,12 +79,13 @@ app.include_router(auth_router)
 app.include_router(learning_router)
 app.include_router(catalog_learning_router)
 app.include_router(dashboard_router)
-app.include_router(reports_router)
+app.include_router(reader_router)
 app.include_router(progress_router)
 app.include_router(streak_router)
 app.include_router(notifications_router)
 app.include_router(api_notifications_router)
 app.include_router(quizzes_router)
+app.include_router(adaptive_quizzes_router)
 
 @app.on_event("startup")
 async def startup_event():
@@ -102,13 +104,11 @@ async def startup_event():
     except Exception as e:
         log.warning("MongoDB index init skipped or failed: %s", e)
 
-    # Initialize SQL Database (SQLite/Postgres)
+    # Initialize SQL Database (Notifications table)
     try:
-        from routes.reports import _ensure_db
         from routes.notifications import _ensure_db as _ensure_notifications_db
-        await _ensure_db()
         await _ensure_notifications_db()
-        log.info("SQL Database initialized successfully (reports.db and notifications table)")
+        log.info("SQL Database initialized successfully (notifications table)")
     except Exception as e:
         log.error("SQL Database init failed: %s", e)
 
@@ -120,6 +120,18 @@ async def root_login(payload: UserLogin):
 @app.get("/")
 def root():
     return {"message": "Emotion Adaptive Learning API is running"}
+
+
+@app.get("/quiz")
+async def get_quiz_root(
+    course_id: str = "", 
+    module_id: str = "", 
+    lesson_id: str = "", 
+    topic: str = "General", 
+    difficulty: str = "medium"
+):
+    from routes.adaptive_quizzes import get_adaptive_quiz
+    return await get_adaptive_quiz(course_id, module_id, lesson_id, topic, difficulty)
 
 
 @app.get("/health")

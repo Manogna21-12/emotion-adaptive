@@ -127,11 +127,21 @@ async def get_dashboard_summary(user_id: str):
             "cognitive_state": "Neutral"
         }
     
-    # Calculate focus score today
-    focus_scores = [float(log.get('focus', log.get('focusLevel', 0))) for log in today_logs if log.get('focus') is not None or log.get('focusLevel') is not None]
-    focus_score_today = int(sum(focus_scores) / len(focus_scores)) if focus_scores else 0
+    # Calculate today's focus score (using both learning and reader logs)
+    focus_scores_learning = [float(log.get('focus', 0)) for log in today_logs if log.get('focus') is not None]
     
-    # Calculate time spent dynamically from true learning sessions today
+    from database import reader_emotion_logs_collection
+    today_reader_logs = await reader_emotion_logs_collection.find({
+        "user_id": user_id,
+        "timestamp": {"$gte": today_utc, "$lt": today_utc + timedelta(days=1)}
+    }).to_list(1000)
+    
+    focus_scores_reader = [float(log.get('focus_score', 0)) for log in today_reader_logs if log.get('focus_score') is not None]
+    
+    all_today_scores = focus_scores_learning + focus_scores_reader
+    focus_score_today = int(sum(all_today_scores) / len(all_today_scores)) if all_today_scores else 0
+    
+    # Calculate time spent from learning sessions + reader sessions
     time_spent_minutes = 0
     from database import learning_sessions_collection
     session_cursor = learning_sessions_collection.find({
@@ -142,21 +152,32 @@ async def get_dashboard_summary(user_id: str):
         }
     })
     sessions_today = await session_cursor.to_list(length=None)
-    
     for session in sessions_today:
         time_spent_minutes += session.get("duration_minutes", 0)
+    
+    # Add reader time (approximate 3s per log)
+    time_spent_minutes += (len(today_reader_logs) * 3) // 60
         
-    print(f"Total time calculated from learning sessions: {time_spent_minutes} minutes")
+    # Topics Mastered logic: unique lessons/concepts with focus > 50
+    # Learning lessons
+    learning_lessons = set()
+    for log in today_logs:
+        lid = log.get('lesson_id') or log.get('lessonId')
+        if lid and float(log.get('focus', 0)) > 50:
+            learning_lessons.add(str(lid))
+            
+    # Reader concepts
+    reader_concepts = set()
+    for log in today_reader_logs:
+        cid = log.get('concept_id')
+        if cid and float(log.get('focus_score', 0)) > 50:
+            reader_concepts.add(str(cid))
+            
+    topics_mastered = len(learning_lessons) + len(reader_concepts)
         
     # Calculate streak from userstats collection
     user_stat = await userstats_collection.find_one({"user_id": user_id})
-    current_streak = 0
-    if user_stat and "current_streak" in user_stat:
-        current_streak = user_stat["current_streak"]
-        print(f"Streak from DB: {current_streak}")
-    
-    # Lessons completed (unique lessons with activity)
-    lessons_completed = len({str(log.get('lesson_id', log.get('lessonId'))) for log in today_logs if log.get('lesson_id') or log.get('lessonId')})
+    current_streak = user_stat.get("current_streak", 0) if user_stat else 0
     
     # Cognitive state
     if focus_score_today > 70:
@@ -170,11 +191,10 @@ async def get_dashboard_summary(user_id: str):
         "focus_score_today": focus_score_today,
         "time_spent_minutes": time_spent_minutes,
         "current_streak": current_streak,
-        "lessons_completed": lessons_completed,
+        "lessons_completed": topics_mastered, # Map topics mastered here for UI
         "cognitive_state": cognitive_state
     }
     
-    print(f"Dashboard summary result: {result}")
     return result
 
 
@@ -299,4 +319,75 @@ async def get_notifications(user_id: str):
         })
         
     return alerts
+
+# --- New endpoints based on prompt ---
+
+@router.get("/api/emotion_logs")
+async def api_get_emotion_logs(user_id: str):
+    match = _user_match_query(user_id)
+    cursor = emotion_logs_collection.find(match).sort("timestamp", 1).limit(100)
+    docs = await cursor.to_list(length=100)
+    logs = []
+    for d in docs:
+        logs.append({
+            "emotion": d.get("emotion", "neutral"),
+            "focus_score": float(d.get("focus", d.get("focusLevel", 0))),
+            "timestamp": _format_time(d.get("timestamp"))
+        })
+    return logs
+
+@router.get("/api/user_progress")
+async def api_get_user_progress(user_id: str):
+    match = _user_match_query(user_id)
+    # Count unique lessons with high focus (>50) as "mastered"
+    topics_completed = len(await emotion_logs_collection.distinct("lesson_id", {**match, "focus": {"$gt": 50}}))
+    return {"topics_mastered": topics_completed}
+
+@router.get("/api/dashboard-stats")
+async def api_get_dashboard_stats(user_id: str):
+    match = _user_match_query(user_id)
+    
+    # Calculate Today's focus
+    ist = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    start_of_day_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_utc = start_of_day_ist.astimezone(pytz.UTC)
+    
+    today_match = {
+        **match,
+        "timestamp": {
+            "$gte": today_utc,
+            "$lt": today_utc + timedelta(days=1)
+        }
+    }
+    
+    cursor = emotion_logs_collection.find(today_match)
+    today_logs = await cursor.to_list(length=None)
+    
+    total_logs = len(today_logs)
+    focused_emotions = sum(1 for log in today_logs if log.get("emotion", "neutral").lower() in ["happy", "neutral"])
+    
+    today_focus = int((focused_emotions / total_logs) * 100) if total_logs > 0 else 0
+    
+    # Topics mastered (Unique lessons with high focus)
+    topics_mastered = len(await emotion_logs_collection.distinct("lesson_id", {**match, "focus": {"$gt": 50}}))
+    
+    # Timeline
+    timeline_cursor = emotion_logs_collection.find(match).sort("timestamp", -1).limit(20)
+    docs = await timeline_cursor.to_list(length=20)
+    docs.reverse()
+    
+    timeline = []
+    for d in docs:
+        timeline.append({
+            "emotion": d.get("emotion", "neutral"),
+            "focus_score": float(d.get("focus", d.get("focusLevel", 0))),
+            "timestamp": _format_time(d.get("timestamp"))
+        })
+        
+    return {
+        "today_focus": today_focus,
+        "topics_mastered": topics_mastered,
+        "timeline": timeline
+    }
 

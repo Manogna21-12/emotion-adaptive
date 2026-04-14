@@ -4,7 +4,7 @@ import { notifyUnauthorized } from "./authSession";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Vite exposes env vars on import.meta.env.* (must be prefixed with VITE_)
-const API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || "https://emotion-adaptive.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || "";
 
 if (!API_BASE_URL) {
   console.error("❌ VITE_API_URL is not defined in the environment variables!");
@@ -15,8 +15,7 @@ const MAX_RETRIES = 3;
 
 export const http = axios.create({
   baseURL: API_BASE_URL,
-  // Increase timeout to 60s to handle Render free-tier cold starts
-  timeout: 60000,
+  timeout: 15000,
 });
 
 http.interceptors.request.use((config) => {

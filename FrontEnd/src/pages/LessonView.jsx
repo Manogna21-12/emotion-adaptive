@@ -4,8 +4,10 @@ import DashboardLayout from "../components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Maximize, PlayCircle, FileText, CheckCircle, Video, ArrowLeft, Loader2, Sparkles, Frown, Zap, Coffee, AlertTriangle, PauseCircle } from "lucide-react";
 import axios from 'axios';
-import { learningApi, reportsApi } from '../services/api';
+import { learningApi, streakApi, adaptiveQuizApi } from '../services/api';
 import { useAuth } from "../contexts/AuthContext";
+import QuizLearningPopup from "../components/QuizLearningPopup";
+import FrustrationPause from "../components/FrustrationPause";
 
 const COURSE_CONTENT = {
   "emotion-ai-architecture": {
@@ -101,6 +103,11 @@ export default function LessonView() {
   const [captureFlash, setCaptureFlash] = useState(false);
   const [focusScore, setFocusScore] = useState(100);
   const [emotionTimeline, setEmotionTimeline] = useState([]);
+  const [adaptiveQuizOpen, setAdaptiveQuizOpen] = useState(false);
+  const [frustrationPauseOpen, setFrustrationPauseOpen] = useState(false);
+  
+  const emotionDurationRef = useRef({ emotion: 'neutral', start: Date.now() });
+  const quizTriggeredRef = useRef(false);
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -213,7 +220,7 @@ export default function LessonView() {
     const trackSession = async () => {
       console.log("⏱️ Sending 1-minute lesson heartbeat...");
       try {
-        await reportsApi.trackSession(userId, 1); // 1 minute
+        await streakApi.heartbeat(userId, 1); // 1 minute
         console.log("✅ [LIVE] Lesson heartbeat success. UI Synced.");
         triggerNotification("⏱️ Stay focused! +1 Minute learning streak saved.", "green");
       } catch (err) {
@@ -256,8 +263,23 @@ export default function LessonView() {
       case "focused":
       case "neutral":
       case "surprise":
-        // continue video
-        if (!isPlaying) setIsPlaying(true);
+        // Track duration for adaptive quiz
+        const now = Date.now();
+        if (emotionDurationRef.current.emotion !== emotion) {
+           emotionDurationRef.current = { emotion, start: now };
+        } else {
+           const duration = (now - emotionDurationRef.current.start) / 1000;
+           // Prompt: happy + focus > 90 continuously for 2 minutes → Set difficulty = HARD
+           // (For demo purposes and UX, I'll trigger it after 30-60s of sustained high performance if focus is good)
+           if (emotion === 'happy' && focusScore > 90 && duration > 60 && !quizTriggeredRef.current) {
+              setAdaptiveQuizOpen(true);
+              quizTriggeredRef.current = true;
+           } else if (emotion === 'neutral' && focusScore > 80 && duration > 120 && !quizTriggeredRef.current) {
+              setAdaptiveQuizOpen(true);
+              quizTriggeredRef.current = true;
+           }
+        }
+        if (!isPlaying && !frustrationPauseOpen) setIsPlaying(true);
         break;
       case "bored":
         if (contentType !== "quiz") {
@@ -269,6 +291,13 @@ export default function LessonView() {
       case "fear":
       case "angry":
       case "disgust":
+        // Prompt: angry or frustrated → PAUSE SYSTEM: Resume after 2 minutes automatically
+        if (emotion === 'angry' || emotion === 'confused') {
+           if (!frustrationPauseOpen) {
+              setFrustrationPauseOpen(true);
+              setIsPlaying(false);
+           }
+        }
         if (contentType !== "notes") {
           triggerNotification("You look confused. Let's review the notes.", "orange");
           setContentType("notes");
@@ -307,7 +336,8 @@ export default function LessonView() {
   };
 
   return (
-    <DashboardLayout>
+    <>
+      <DashboardLayout>
       <div className={`transition-colors duration-1000 bg-gradient-to-br ${getThemeClasses()} absolute inset-0 -z-10`} />
 
       <div className="flex flex-col gap-6 h-[calc(100vh-140px)]">
@@ -567,6 +597,31 @@ export default function LessonView() {
 
         </div>
       </div>
+
     </DashboardLayout>
+    <QuizLearningPopup 
+        isOpen={adaptiveQuizOpen}
+        onClose={() => {
+          setAdaptiveQuizOpen(false);
+          // Wait 5 minutes before triggering again
+          setTimeout(() => { quizTriggeredRef.current = false; }, 300000);
+        }}
+        courseId={courseName}
+        moduleId="dynamic_mod"
+        lessonId={courseName}
+        topic="General"
+        currentEmotion={detectedEmotion}
+        focusScore={focusScore}
+        userId={user?.id || user?._id}
+      />
+
+      <FrustrationPause 
+        isOpen={frustrationPauseOpen}
+        onResume={() => {
+          setFrustrationPauseOpen(false);
+          setIsPlaying(true);
+        }}
+      />
+    </>
   );
 }

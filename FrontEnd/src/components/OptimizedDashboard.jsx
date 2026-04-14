@@ -1,8 +1,8 @@
-"""
+/*
 ULTRA-OPTIMIZED DASHBOARD COMPONENT
 Features: Instant load, skeleton loaders, optimistic updates, memoization
 Performance: <100ms perceived latency
-"""
+*/
 
 import React, { memo, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,6 +12,14 @@ import {
   useUpdateDashboardData 
 } from "../hooks/useOptimizedQueries";
 import { performanceUtils } from "../services/optimizedApi";
+import { 
+  Calendar, 
+  Clock, 
+  Target, 
+  Flame, 
+  RefreshCw,
+  AlertCircle
+} from "lucide-react";
 
 // Skeleton Loader Components
 const DashboardSkeleton = memo(() => (
@@ -182,28 +190,28 @@ const OptimizedDashboard = ({ userId }) => {
       {
         title: "Total Sessions",
         value: summary.total_sessions || 0,
-        icon: require("lucide-react").Calendar,
+        icon: Calendar,
         color: "bg-blue-500",
         trend: 12
       },
       {
         title: "Focus Time",
         value: `${summary.total_time || 0}m`,
-        icon: require("lucide-react").Clock,
+        icon: Clock,
         color: "bg-green-500",
         trend: 8
       },
       {
         title: "Avg Focus",
         value: `${summary.avg_focus || 0}%`,
-        icon: require("lucide-react").Target,
+        icon: Target,
         color: "bg-purple-500",
         trend: -3
       },
       {
         title: "Streak",
         value: `${summary.streak_days || 0} days`,
-        icon: require("lucide-react").Flame,
+        icon: Flame,
         color: "bg-orange-500",
         trend: 15
       }
@@ -263,7 +271,7 @@ const OptimizedDashboard = ({ userId }) => {
           onClick={refetch}
           className="p-2 bg-glass-base border border-glass-border rounded-lg hover:bg-glass-hover transition-colors"
         >
-          <require("lucide-react").RefreshCw className="w-5 h-5" />
+          <RefreshCw className="w-5 h-5" />
         </button>
       </div>
 

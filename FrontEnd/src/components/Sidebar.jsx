@@ -27,7 +27,7 @@ const SIDEBAR_ITEMS = [
   { name: "Progress Dashboard", path: "/student-dashboard", icon: LayoutDashboard },
   { name: "Learning", path: "/courses", icon: BookOpen },
   { name: "Progress", path: "/progress", icon: TrendingUp },
-  { name: "Reports", path: "/reports", icon: FileText },
+  { name: "Smart Reader", path: "/reader", icon: FileText },
   { name: "Settings", path: "/profile", icon: Settings },
 ];
 
