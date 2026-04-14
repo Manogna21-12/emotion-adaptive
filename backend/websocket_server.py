@@ -280,7 +280,7 @@ def get_websocket_test_html():
         <div id="messages"></div>
         
         <script>
-            const ws = new WebSocket('ws://localhost:8000/ws/test_user_123');
+            const ws = new WebSocket('wss://emotion-adaptive.onrender.com/ws/test_user_123');
             const messages = document.getElementById('messages');
             const messageInput = document.getElementById('messageInput');
             

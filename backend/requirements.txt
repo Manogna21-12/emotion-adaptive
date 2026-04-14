@@ -8,6 +8,7 @@ pydantic[email]
 python-dotenv
 opencv-python-headless
 deepface
+tf-keras
 cloudinary
 SQLAlchemy[asyncio]
 asyncpg

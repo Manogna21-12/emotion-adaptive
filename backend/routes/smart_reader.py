@@ -61,6 +61,9 @@ async def track_emotion(data: EmotionTrack):
         upsert=True
     )
     
+    if not data.document_id or len(data.document_id) != 24:
+        return {"status": "error", "message": "Invalid document ID"}
+        
     await smart_reader_collection.update_one(
         {"_id": ObjectId(data.document_id)},
         {"$inc": {"total_engagement_seconds": seconds_to_add}}

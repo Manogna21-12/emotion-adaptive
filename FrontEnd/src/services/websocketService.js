@@ -31,7 +31,7 @@ class WebSocketService {
 
     this.connectionPromise = new Promise((resolve, reject) => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+        const apiBase = import.meta.env.VITE_API_URL || "https://emotion-adaptive.onrender.com";
         const wsProtocol = apiBase.startsWith("https") ? "wss" : "ws";
         const wsHost = apiBase.replace(/^https?:\/\//, "");
         const wsUrl = userId 

@@ -79,11 +79,11 @@ const EmotionTestApp = () => {
               <div className="info-grid">
                 <div className="info-item">
                   <strong>Backend URL:</strong>
-                  <span>http://localhost:8000</span>
+                  <span>https://emotion-adaptive.onrender.com</span>
                 </div>
                 <div className="info-item">
                   <strong>Socket URL:</strong>
-                  <span>http://localhost:8000</span>
+                  <span>https://emotion-adaptive.onrender.com</span>
                 </div>
                 <div className="info-item">
                   <strong>Current User:</strong>
@@ -126,7 +126,7 @@ const EmotionTestApp = () => {
       <footer className="app-footer">
         <div className="footer-content">
           <p>🔗 Live Emotion Test App - Backend Integration Test</p>
-          <p>Make sure backend is running on <code>http://localhost:8000</code></p>
+          <p>Make sure backend is running on <code>https://emotion-adaptive.onrender.com</code></p>
         </div>
       </footer>
     </div>

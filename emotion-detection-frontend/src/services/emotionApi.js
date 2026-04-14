@@ -11,7 +11,7 @@ const api = axios.create({
 // API service for emotion detection
 class EmotionApiService {
   constructor() {
-    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    this.baseUrl = import.meta.env.VITE_API_URL || 'https://emotion-adaptive.onrender.com';
   }
 
   // Analyze emotion from image

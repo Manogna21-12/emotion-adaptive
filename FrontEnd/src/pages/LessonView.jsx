@@ -142,7 +142,7 @@ export default function LessonView() {
 
   // Frame Capture every 5s UI & 2m Log
   useEffect(() => {
-    if (!cameraAccess || !isPlaying) return;
+    if (!cameraAccess) return;
 
     const captureFrame = async () => {
       if (videoRef.current && canvasRef.current && overlayCanvasRef.current) {
@@ -210,7 +210,7 @@ export default function LessonView() {
     }, 1500);
 
     return () => clearInterval(interval);
-  }, [cameraAccess, isPlaying]);
+  }, [cameraAccess]);
 
   // REAL-TIME TRACKING: Send 1-minute session heartbeats to backend
   useEffect(() => {
@@ -402,7 +402,7 @@ export default function LessonView() {
           {/* Main Content (Adaptive) */}
           <div className={`flex-1 glass-card overflow-hidden flex flex-col relative rounded-3xl border ${detectedEmotion==='no_face' ? 'border-red-500/50' : 'border-glass-border'} shrink-0 transition-colors duration-500`}>
             
-            {!isPlaying && detectedEmotion === 'no_face' && (
+            {contentType === "video" && !isPlaying && detectedEmotion === 'no_face' && (
                 <div className="absolute inset-0 z-20 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
                     <PauseCircle className="w-24 h-24 text-red-500 mb-4 animate-pulse" />
                     <h2 className="text-3xl font-bold text-white mb-2">Video Paused</h2>

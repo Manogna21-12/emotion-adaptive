@@ -246,7 +246,7 @@ vercel env add VITE_API_URL
 VITE_API_URL=https://your-backend.onrender.com
 
 # Development
-VITE_API_URL=http://localhost:8000
+VITE_API_URL=https://emotion-adaptive.onrender.com
 ```
 
 ### **Build Configuration**

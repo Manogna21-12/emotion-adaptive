@@ -275,7 +275,7 @@ const HeartbeatDemo = () => {
         <h3>🔧 API Information</h3>
         <div className="api-details">
           <div className="api-item">
-            <strong>Base URL:</strong> http://localhost:8000
+            <strong>Base URL:</strong> https://emotion-adaptive.onrender.com
           </div>
           <div className="api-item">
             <strong>Heartbeat Endpoint:</strong> POST /streak/heartbeat

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 # Configuration
-BASE_URL = os.getenv('API_URL', 'http://localhost:8000')
+BASE_URL = os.getenv('API_URL', 'https://emotion-adaptive.onrender.com')
 TEST_IMAGE_PATH = 'test_image.jpg'  # You'll need to provide a test image
 
 def print_response(response, title):

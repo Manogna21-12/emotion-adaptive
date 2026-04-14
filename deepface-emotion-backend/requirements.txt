@@ -6,6 +6,7 @@ flask-cors==4.0.0
 # DeepFace and ML Dependencies
 deepface==0.0.79
 tensorflow==2.13.0
+tf-keras
 opencv-python-headless==4.8.1.78
 
 # Data Processing

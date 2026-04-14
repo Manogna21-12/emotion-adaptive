@@ -11,7 +11,7 @@ class SocketService {
   connect(userId) {
     if (this.socket && this.isConnected) return;
     this.userId = userId;
-    const serverUrl = process.env.REACT_APP_SOCKET_URL || 'http://localhost:8000';
+    const serverUrl = process.env.REACT_APP_SOCKET_URL || 'https://emotion-adaptive.onrender.com';
     console.log('🔌 Connecting to Socket.IO server on', serverUrl);
     
     this.socket = io(serverUrl, {
