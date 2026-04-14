@@ -1,0 +1,11 @@
+{
+  "name": "emotion-adaptive-learning",
+  "private": true,
+  "description": "Run FastAPI backend and Vite frontend together (npm run dev)",
+  "scripts": {
+    "dev": "cd FrontEnd && npm run dev",
+    "dev:backend": "cd backend && python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload",
+    "dev:frontend": "cd FrontEnd && npm run dev:frontend",
+    "install:all": "cd FrontEnd && npm install"
+  }
+}

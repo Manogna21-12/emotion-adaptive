@@ -1,0 +1,81 @@
+{
+  "name": "emotion-adaptive-optimized",
+  "version": "2.0.0",
+  "description": "Ultra-optimized emotion adaptive learning platform",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:analyze": "vite build --mode analyze",
+    "start:optimized": "npm run build && npm run preview",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext js,jsx --fix",
+    "format": "prettier --write \"src/**/*.{js,jsx,css,md}\"",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "size-check": "npm run build && bundlesize"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "axios": "^1.3.4",
+    "@tanstack/react-query": "^4.24.6",
+    "@tanstack/react-query-devtools": "^4.24.6",
+    "framer-motion": "^10.0.1",
+    "lucide-react": "^0.220.0",
+    "clsx": "^1.2.1",
+    "tailwind-merge": "^1.10.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "@vitejs/plugin-react": "^3.1.0",
+    "vite": "^4.1.0",
+    "vite-plugin-pwa": "^0.14.4",
+    "workbox-window": "^6.5.4",
+    "eslint": "^8.36.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.3.4",
+    "prettier": "^2.8.7",
+    "vitest": "^0.29.2",
+    "@vitest/ui": "^0.29.2",
+    "@vitest/coverage-v8": "^0.29.2",
+    "bundlesize": "^0.18.1",
+    "rollup-plugin-visualizer": "^5.9.0",
+    "vite-bundle-analyzer": "^0.7.0",
+    "compression": "^1.7.4",
+    "sharp": "^0.32.0",
+    "imagemin": "^8.0.0",
+    "imagemin-webp": "^7.0.0",
+    "imagemin-mozjpeg": "^10.0.0",
+    "imagemin-pngquant": "^9.0.2"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "bundlesize": [
+    {
+      "path": "./dist/assets/index-*.js",
+      "maxSize": "300kb",
+      "compression": "gzip"
+    },
+    {
+      "path": "./dist/assets/index-*.css",
+      "maxSize": "50kb",
+      "compression": "gzip"
+    }
+  ]
+}

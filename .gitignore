@@ -1,0 +1,39 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node / React
+node_modules/
+**/node_modules/
+build/
+dist/
+**/build/
+**/dist/
+
+# Python / FastAPI
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+env/
+
+# Tooling / IDE
+.vscode/
+!.vscode/extensions.json
+.idea/
+

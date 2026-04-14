@@ -1,0 +1,364 @@
+/* Live Emotion Sidebar Styles */
+.live-emotion-sidebar {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: 2px solid #e5e7eb;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  min-width: 280px;
+}
+
+.live-emotion-sidebar.updating {
+  transform: scale(1.02);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+/* Connection Status */
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.connection-status.connected {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.connection-status.disconnected {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.connection-status.error {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s infinite;
+}
+
+.status-text {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Emotion Display */
+.emotion-display {
+  margin-bottom: 20px;
+}
+
+.emotion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.emotion-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.updating-indicator {
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 500;
+  animation: blink 1s infinite;
+}
+
+.emotion-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 2px solid;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.emotion-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.live-emotion-sidebar.updating .emotion-content::before {
+  left: 100%;
+}
+
+.emotion-icon {
+  font-size: 48px;
+  line-height: 1;
+  animation: bounce 2s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.emotion-info {
+  flex: 1;
+}
+
+.emotion-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+  text-transform: capitalize;
+}
+
+.emotion-details {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.emotion-timestamp {
+  font-weight: 500;
+}
+
+/* User Info */
+.user-info {
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.user-id {
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.last-update {
+  font-style: italic;
+}
+
+/* Pulse Effect */
+.live-emotion-sidebar.pulse {
+  animation: sidebarPulse 1s ease-out;
+}
+
+.pulse-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  animation: pulseOverlay 1s ease-out;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes blink {
+  0%, 50%, 100% {
+    opacity: 1;
+  }
+  25%, 75% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+  60% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes sidebarPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 8px 30px rgba(59, 130, 246, 0.3);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+}
+
+@keyframes pulseOverlay {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+/* Emotion-specific animations */
+.emotion-content[data-emotion="happy"] .emotion-icon {
+  animation: bounce 1.5s ease-in-out infinite;
+}
+
+.emotion-content[data-emotion="sad"] .emotion-icon {
+  animation: gentleWave 2s ease-in-out infinite;
+}
+
+.emotion-content[data-emotion="confused"] .emotion-icon {
+  animation: rotate 3s ease-in-out infinite;
+}
+
+.emotion-content[data-emotion="angry"] .emotion-icon {
+  animation: shake 0.5s ease-in-out infinite;
+}
+
+@keyframes gentleWave {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes rotate {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-1px);
+  }
+  75% {
+    transform: translateX(1px);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .live-emotion-sidebar {
+    min-width: 240px;
+    padding: 16px;
+  }
+  
+  .emotion-icon {
+    font-size: 40px;
+  }
+  
+  .emotion-label {
+    font-size: 16px;
+  }
+  
+  .emotion-header h3 {
+    font-size: 12px;
+  }
+  
+  .status-text {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .live-emotion-sidebar {
+    min-width: 200px;
+    padding: 12px;
+  }
+  
+  .emotion-content {
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .emotion-icon {
+    font-size: 32px;
+  }
+  
+  .emotion-label {
+    font-size: 14px;
+  }
+  
+  .emotion-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .live-emotion-sidebar {
+    background: #1f2937;
+    border-color: #374151;
+    color: #f9fafb;
+  }
+  
+  .emotion-header h3 {
+    color: #f9fafb;
+  }
+  
+  .emotion-label {
+    color: #f9fafb;
+  }
+  
+  .user-info {
+    border-color: #374151;
+    color: #9ca3af;
+  }
+}

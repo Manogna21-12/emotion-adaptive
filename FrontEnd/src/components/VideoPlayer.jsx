@@ -1,0 +1,460 @@
+import React, { useRef, useEffect, useState, useContext } from "react";
+import { motion } from "framer-motion";
+import { Activity, Play, Camera, CameraOff } from "lucide-react";
+import { learningApi } from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
+import useAdaptiveQuiz from "../hooks/useAdaptiveQuiz";
+import AdaptiveQuizModal from "./AdaptiveQuizModal";
+import FeedbackModal from "./FeedbackModal";
+import { Coffee } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+
+export default function VideoPlayer({ lesson, nextLesson }) {
+  const { user } = useAuth();
+  const videoRef = useRef(null);
+  const webcamRef = useRef(null);
+  const canvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const captureIntervalRef = useRef(null);
+  const isWebcamActiveRef = useRef(false);
+  const sessionIdRef = useRef(null);
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentEmotion, setCurrentEmotion] = useState(lesson?.emotionTag || "Neutral");
+  const [webcamEnabled, setWebcamEnabled] = useState(false);
+  const [captureFlash, setCaptureFlash] = useState(false);
+  const [faceBox, setFaceBox] = useState(null);
+  const lastLoggedTimeRef = useRef(Date.now());
+  const startTimeRef = useRef(null);
+  const timeSpentRef = useRef(0);
+  const [timeSpent, setTimeSpent] = useState(0);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const feedbackShownRef = useRef(false); // prevent showing twice
+
+  // Unified Adaptive Quiz Hook
+  const {
+    isQuizOpen,
+    openQuiz,
+    closeQuiz,
+    isPausedByEmotion,
+    setIsPausedByEmotion,
+    pauseCountdown,
+    emotionHistory,
+    currentEmotion: adaptiveEmotion,
+    registerDetection
+  } = useAdaptiveQuiz({
+    userId: user?._id || user?.id,
+    courseId: lesson?.courseId || "default",
+    lessonId: lesson?.lesson_id || lesson?.id || lesson?._id,
+    triggerIntervalMS: 30000 // 30 seconds
+  });
+
+  // Automatically pause/resume video when quiz opens/closes
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isQuizOpen) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      } else if (!isPausedByEmotion) {
+        // Resume playback after quiz closes, unless we are in a frustration break
+        videoRef.current.play().catch(() => {});
+        setIsPlaying(true);
+      }
+    }
+  }, [isQuizOpen, isPausedByEmotion]);
+
+  useEffect(() => {
+    if (lesson) {
+      setCurrentEmotion(lesson.emotionTag || "Neutral");
+      if (videoRef.current) {
+        videoRef.current.load();
+        // The play() action will trigger onPlay which handles the webcam locally
+        videoRef.current.play().catch(e => console.log("Autoplay prevented:", e));
+      }
+    }
+  }, [lesson]);
+
+
+
+  const startWebcam = async () => {
+    try {
+      if (isWebcamActiveRef.current) return;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      streamRef.current = stream;
+      if (webcamRef.current) {
+        webcamRef.current.srcObject = stream;
+      }
+      setWebcamEnabled(true);
+      isWebcamActiveRef.current = true;
+
+      // Start capturing frames every 10 seconds for emotion analysis
+      captureIntervalRef.current = setInterval(captureFrame, 10000);
+      console.log("[Webcam] Started - Capturing every 10 seconds");
+    } catch (err) {
+      console.error("Error accessing webcam:", err);
+    }
+  };
+
+  const stopWebcam = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (captureIntervalRef.current) {
+      clearInterval(captureIntervalRef.current);
+      captureIntervalRef.current = null;
+    }
+    setWebcamEnabled(false);
+    isWebcamActiveRef.current = false;
+    console.log("[Webcam] Stopped");
+  };
+
+  const captureFrame = async () => {
+    // Only capture if webcam is active
+    if (!isWebcamActiveRef.current || !webcamRef.current || !canvasRef.current) return;
+    
+    console.log("Frame captured");
+    
+    const video = webcamRef.current;
+    const canvas = canvasRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
+    const context = canvas.getContext("2d");
+    const overlayCtx = overlayCanvas?.getContext("2d");
+    
+    // Fixed snapshot dimension for faster processing
+    canvas.width = 320;
+    canvas.height = 240;
+    
+    if (overlayCanvas) {
+      overlayCanvas.width = 320;
+      overlayCanvas.height = 240;
+    }
+    
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const base64Image = canvas.toDataURL("image/jpeg").split(",")[1];
+    
+    try {
+      console.log("DeepFace running");
+      const res = await learningApi.analyzeEmotion(base64Image);
+      
+      if (res && res.emotion) {
+        console.log(`Emotion detected: ${res.emotion}`);
+        
+        // Draw bounding box if face detected
+        if (overlayCtx && res.box) {
+          overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          
+          const { x, y, w, h } = res.box;
+          // Scale coordinates to match canvas size
+          const scaleX = overlayCanvas.width / video.videoWidth;
+          const scaleY = overlayCanvas.height / video.videoHeight;
+          
+          overlayCtx.strokeStyle = res.emotion === 'no_face' ? '#EF4444' : '#10B981'; // red or green
+          overlayCtx.lineWidth = 3;
+          overlayCtx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+          
+          setFaceBox(res.box);
+        } else if (overlayCtx) {
+          overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          setFaceBox(null);
+        }
+        
+        if (res.emotion !== 'no_face' && res.emotion !== 'error') {
+          const titleCaseEmo = res.emotion.charAt(0).toUpperCase() + res.emotion.slice(1);
+          setCurrentEmotion(titleCaseEmo);
+        } else {
+          setCurrentEmotion(res.emotion === 'no_face' ? 'No Face' : 'Error');
+        }
+        
+        // Execute flash effect natively upon successful processing (~200ms white overlay)
+        setCaptureFlash(true);
+        setTimeout(() => setCaptureFlash(false), 200);
+
+          // Use lesson_id (from backend) with fallback to id/_id
+        if (lesson && user) {
+          const lessonId = lesson.lesson_id || lesson.id || lesson._id;
+          const userId = user._id || user.id;
+          if (userId && lessonId) {
+            console.log("[Emotion System] Logged new exact 30s capture to DB!");
+            await learningApi.logEmotion(
+              userId,
+              lessonId,
+              res.emotion,
+              res.focus || 0
+            );
+            
+            // Link to Adaptive Quiz Hook
+            registerDetection(res.emotion, res.focus || 0);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Emotion analysis failed via api:", err);
+      // Clear overlay on error
+      if (overlayCtx) {
+        overlayCtx.clearRect(0, 0, overlayCanvas?.width || 320, overlayCanvas?.height || 240);
+      }
+      setFaceBox(null);
+    }
+  };
+
+  const handlePlay = async () => {
+    setIsPlaying(true);
+    startWebcam();
+    if (!startTimeRef.current) {
+      startTimeRef.current = Date.now();
+      console.log("Time tracking started");
+      try {
+        const userId = user?._id || user?.id;
+        // Use lesson_id with fallback to id/_id
+        const lessonId = lesson?.lesson_id || lesson?.id || lesson?._id;
+        if (userId && lessonId) {
+          const res = await learningApi.startSession(userId, lesson.moduleId || "active_course", lessonId);
+          sessionIdRef.current = res.session_id;
+          console.log("Started active backend session tracker: ", res.session_id);
+        }
+      } catch (err) {
+        console.error("Failed to start session API mapping:", err);
+      }
+    }
+  };
+
+  const handlePauseOrEnd = () => {
+    setIsPlaying(false);
+    stopWebcam();
+    // Stop time tracking
+    if (startTimeRef.current) {
+      const sessionTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      timeSpentRef.current += sessionTime;
+      startTimeRef.current = null;
+      setTimeSpent(timeSpentRef.current);
+      console.log(`Time tracking stopped. Session time: ${sessionTime}s, Total: ${timeSpentRef.current}s`);
+      
+      if (sessionIdRef.current) {
+         learningApi.endSession(sessionIdRef.current, Math.max(1, Math.floor(timeSpentRef.current / 60)))
+           .catch(err => console.error(err));
+      }
+    }
+  };
+
+  const handleEnded = () => {
+    handlePauseOrEnd();
+    // Show feedback modal exactly once per lesson
+    if (!feedbackShownRef.current) {
+      feedbackShownRef.current = true;
+      setIsFeedbackOpen(true);
+    }
+  };
+
+  const handleFeedbackClose = () => {
+    setIsFeedbackOpen(false);
+    // Continue to next lesson after feedback
+    if (nextLesson) nextLesson();
+  };
+
+  // Update time spent every second while playing
+  useEffect(() => {
+    let interval;
+    if (isPlaying && startTimeRef.current) {
+      interval = setInterval(() => {
+        const currentSession = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const total = timeSpentRef.current + currentSession;
+        setTimeSpent(total);
+        
+        // Poll sync session active duration strictly every 30 seconds to the DB natively
+        if (total > 0 && total % 30 === 0 && sessionIdRef.current) {
+           learningApi.endSession(sessionIdRef.current, Math.max(1, Math.floor(total / 60))).catch(console.error);
+        }
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlaying]);
+
+  // Cleanup on unmount or lesson change
+  useEffect(() => {
+    return () => {
+      stopWebcam();
+      // Save final time spent
+      if (startTimeRef.current) {
+        const sessionTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        timeSpentRef.current += sessionTime;
+        setTimeSpent(timeSpentRef.current);
+        
+        if (sessionIdRef.current) {
+           learningApi.endSession(sessionIdRef.current, Math.max(1, Math.floor(timeSpentRef.current / 60))).catch(console.error);
+        }
+      }
+    };
+  }, [lesson]);
+
+  if (!lesson) {
+    return (
+      <div className="flex-1 glass-card rounded-3xl border border-glass-border flex flex-col justify-center items-center text-center p-8 bg-glass-base shadow-sm">
+         <div className="w-16 h-16 rounded-full border border-glass-border flex items-center justify-center bg-glass-hover mb-4">
+             <Play className="w-8 h-8 text-text-subtle ml-1" />
+         </div>
+         <h2 className="text-2xl font-bold text-root-fg">Select a lesson to begin</h2>
+         <p className="text-text-muted mt-2">Choose a lesson from the left sidebar to start learning.</p>
+      </div>
+    );
+  }
+
+  // Live styling based on the current analyzed emotion
+  const emotionStyle = 
+    ["Focused", "Happy", "Surprise"].includes(currentEmotion) ? "bg-green-500/20 text-green-500 border-green-500/30" :
+    ["Stressed", "Sad", "Fear", "Angry", "Disgust"].includes(currentEmotion) ? "bg-orange-500/20 text-orange-500 border-orange-500/30" :
+    "bg-cyan-500/20 text-cyan-500 border-cyan-500/30";
+
+  return (
+    <div className="flex flex-col flex-1 h-full min-h-0 relative">
+      
+      {/* Video Viewport */}
+      <motion.div 
+        key={lesson.id}
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="glass-card rounded-3xl overflow-hidden border border-glass-border shadow-xl bg-black relative flex-shrink-0"
+      >
+        <video 
+          ref={videoRef}
+          controls
+          onPlay={handlePlay}
+          onPause={handlePauseOrEnd}
+          onEnded={handleEnded}
+          className="w-full aspect-video object-cover"
+          poster="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1600&q=80"
+        >
+          {lesson.videoUrl ? (
+            <source src={lesson.videoUrl} type="video/mp4" />
+          ) : null}
+          Your browser does not support HTML5 video.
+        </video>
+        
+        {/* Soft bottom gradient */}
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+      </motion.div>
+
+      {/* Picture-in-Picture Webcam View */}
+      <div 
+         className={`absolute bottom-32 right-6 w-28 md:w-40 aspect-video rounded-2xl overflow-hidden border-2 shadow-[0_0_25px_rgba(0,0,0,0.5)] transition-all duration-700 z-20 pointer-events-none
+         ${webcamEnabled ? 'opacity-100 translate-y-0 border-brand-500/60 shadow-brand-500/20' : 'opacity-0 translate-y-8 border-transparent'}`}
+      >
+          <video ref={webcamRef} autoPlay playsInline muted className="w-full h-full object-cover transform -scale-x-100 bg-gray-900" />
+          <canvas ref={overlayCanvasRef} className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" />
+          
+          {/* Flash overlay */}
+          {captureFlash && (
+            <div className="absolute inset-0 bg-white opacity-60 z-20 pointer-events-none animate-pulse" />
+          )}
+          
+          <div className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-lg backdrop-blur-md">
+             {webcamEnabled ? <Camera className="w-3.5 h-3.5 text-brand-500 animate-pulse" /> : <CameraOff className="w-3.5 h-3.5 text-red-500" />}
+          </div>
+          <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded backdrop-blur-md">
+             <span className="text-[10px] font-bold text-white uppercase tracking-wider">Live Scan</span>
+          </div>
+          {faceBox && (
+            <div className="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded backdrop-blur-md">
+               <span className="text-[10px] font-bold text-green-500 uppercase tracking-wider">Face Detected</span>
+            </div>
+          )}
+      </div>
+      
+      {/* Hidden processing canvas */}
+      <canvas ref={canvasRef} className="hidden" />
+      <canvas ref={overlayCanvasRef} className="hidden" />
+
+      {/* Metadata Panel */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="mt-6 flex-1 bg-glass-base border border-glass-border rounded-3xl p-6 lg:p-8 flex flex-col gap-4 overflow-y-auto custom-scrollbar relative overflow-hidden group shadow-sm hover:shadow-md transition-shadow"
+      >
+        <div className="absolute top-0 right-0 w-48 h-48 bg-brand-500/5 blur-[50px] pointer-events-none group-hover:bg-brand-500/10 transition-colors duration-700" />
+        
+        <div className="relative z-10 flex justify-between items-start gap-4 flex-wrap pb-4 border-b border-glass-border/50">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-root-fg tracking-tight">
+              {lesson.title}
+            </h1>
+            <div className="flex items-center gap-4 mt-3">
+               <span className="text-sm font-semibold text-text-subtle bg-panel-bg px-3 py-1 rounded-md border border-glass-border">
+                  Duration: {lesson.duration}
+               </span>
+               <span className="text-sm font-semibold text-text-subtle bg-panel-bg px-3 py-1 rounded-md border border-glass-border">
+                  Time: {Math.floor(timeSpent / 60) > 0 ? `${Math.floor(timeSpent / 60)} min${Math.floor(timeSpent / 60) > 1 ? 's' : ''}` : `${timeSpent % 60}s`}
+               </span>
+               <span className="text-sm font-semibold text-text-subtle bg-panel-bg px-3 py-1 rounded-md border border-glass-border/30 flex items-center gap-1.5">
+                  <Camera className={`w-3.5 h-3.5 ${webcamEnabled ? 'text-brand-500' : 'text-text-muted'}`} />
+                  {webcamEnabled ? 'Monitoring' : 'Standby'}
+               </span>
+            </div>
+          </div>
+          
+          <div className={`px-4 py-2 rounded-xl border text-sm font-bold flex items-center gap-2 uppercase tracking-wider shrink-0 shadow-sm transition-colors duration-500 ${emotionStyle}`}>
+              <Activity className={`${webcamEnabled ? 'animate-pulse' : ''} w-5 h-5`} /> {currentEmotion}
+          </div>
+        </div>
+        
+        <p className="relative z-10 text-text-muted leading-relaxed font-medium mt-2">
+          {lesson.description || "In this module, you will cover essential techniques. Ensure you closely follow the examples and apply the concepts dynamically to maximize retention."}
+        </p>
+      </motion.div>
+
+      {/* Adaptive Quiz Modal */}
+      <AdaptiveQuizModal 
+        isOpen={isQuizOpen}
+        onClose={closeQuiz}
+        courseId={lesson?.courseId || "default"}
+        userId={user?._id || user?.id}
+        emotion={adaptiveEmotion}
+        focusScore={75} // placeholder or from res.focus
+        emotionHistory={emotionHistory}
+      />
+
+      {/* Frustration Break Popup */}
+      <AnimatePresence>
+        {isPausedByEmotion && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md"
+          >
+            <div className="bg-zinc-900 rounded-3xl border border-red-500/30 p-10 text-center max-w-md mx-4">
+               <Coffee className="w-16 h-16 text-red-500 mx-auto mb-6 animate-bounce" />
+               <h2 className="text-3xl font-bold text-white mb-4">You seem frustrated</h2>
+               <p className="text-zinc-400 mb-8 text-lg">
+                 Let's take a quick 2-minute break to reset.
+               </p>
+               <div className="text-5xl font-mono font-bold text-red-500 mb-8">
+                 {Math.floor(pauseCountdown / 60)}:{String(pauseCountdown % 60).padStart(2, '0')}
+               </div>
+               <button 
+                onClick={() => setIsPausedByEmotion(false)}
+                className="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition font-bold"
+               >
+                 I'm ready now
+               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lesson Feedback Modal */}
+      <FeedbackModal 
+        isOpen={isFeedbackOpen}
+        onClose={handleFeedbackClose}
+        lessonId={lesson?.lesson_id || lesson?.id || lesson?._id}
+        moduleId={lesson?.moduleId || "unknown"}
+        userId={user?._id || user?.id}
+      />
+
+    </div>
+  );
+}

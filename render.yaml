@@ -1,0 +1,26 @@
+services:
+  # Python FastAPI Backend
+  - type: web
+    name: emotion-adaptive-api
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+  # Vite Frontend (Option for Render, though Vercel is recommended)
+  - type: web
+    name: emotion-adaptive-ui
+    env: static
+    buildCommand: cd FrontEnd && npm install && npm run build
+    publishDir: FrontEnd/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

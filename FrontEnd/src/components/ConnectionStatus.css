@@ -1,0 +1,342 @@
+/* Connection Status Component Styles */
+.connection-status {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border: 2px solid #e5e7eb;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.connection-status.connected {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.connection-status.disconnected {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.connection-status.error {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.connection-status.checking {
+  border-color: #6b7280;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+}
+
+/* Status Indicator */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.status-icon {
+  font-size: 20px;
+  line-height: 1;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-text {
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Status Details */
+.status-details {
+  font-size: 14px;
+  color: #374151;
+}
+
+.status-description {
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.last-check {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 13px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border-radius: 6px;
+  border-left: 3px solid #dc2626;
+}
+
+/* Retry Button */
+.retry-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 16px;
+}
+
+.retry-button:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.retry-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid transparent;
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Connection Tips */
+.connection-tips {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.tips-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1f2937;
+}
+
+.connection-tips ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style-type: none;
+}
+
+.connection-tips li {
+  margin-bottom: 6px;
+  position: relative;
+  padding-left: 8px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.connection-tips li::before {
+  content: '•';
+  position: absolute;
+  left: -8px;
+  color: #6b7280;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Status-specific animations */
+.connection-status.connected .status-icon {
+  animation: pulse 2s ease-in-out infinite;
+  color: #10b981;
+}
+
+.connection-status.disconnected .status-icon {
+  animation: blink 1s ease-in-out infinite;
+  color: #ef4444;
+}
+
+.connection-status.error .status-icon {
+  animation: shake 0.5s ease-in-out infinite;
+  color: #f59e0b;
+}
+
+.connection-status.checking .status-icon {
+  animation: spin 2s linear infinite;
+  color: #6b7280;
+}
+
+@keyframes blink {
+  0%, 50%, 100% {
+    opacity: 1;
+  }
+  25%, 75% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .connection-status {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .status-indicator {
+    gap: 8px;
+  }
+  
+  .status-icon {
+    font-size: 18px;
+  }
+  
+  .status-text {
+    font-size: 14px;
+  }
+  
+  .status-details {
+    font-size: 13px;
+  }
+  
+  .retry-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .connection-tips {
+    padding: 10px;
+  }
+  
+  .tips-title {
+    font-size: 14px;
+  }
+  
+  .connection-tips li {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .connection-status {
+    padding: 10px;
+  }
+  
+  .status-indicator {
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+  }
+  
+  .status-text {
+    font-size: 13px;
+  }
+  
+  .retry-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .connection-status {
+    background: #1f2937;
+    border-color: #374151;
+    color: #f9fafb;
+  }
+  
+  .connection-status.connected {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    border-color: #10b981;
+  }
+  
+  .connection-status.disconnected {
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border-color: #ef4444;
+  }
+  
+  .connection-status.error {
+    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+    border-color: #f59e0b;
+  }
+  
+  .connection-status.checking {
+    background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+    border-color: #6b7280;
+  }
+  
+  .status-details {
+    color: #e5e7eb;
+  }
+  
+  .last-check {
+    color: #9ca3af;
+  }
+  
+  .error-message {
+    background: #7f1d1d;
+    color: #fecaca;
+    border-left-color: #ef4444;
+  }
+  
+  .connection-tips {
+    background: #111827;
+    border-color: #374151;
+  }
+  
+  .tips-title {
+    color: #f9fafb;
+  }
+  
+  .connection-tips li {
+    color: #d1d5db;
+  }
+}
