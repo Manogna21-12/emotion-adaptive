@@ -31,8 +31,8 @@ export const LazyAdminDashboard = lazy(() =>
   }))
 );
 
-export const LazyReader = lazy(() => 
-  import('../pages/SmartReader').then(module => ({
+export const LazyReports = lazy(() => 
+  import('../pages/Reports').then(module => ({
     default: module.default
   }))
 );
@@ -67,6 +67,18 @@ export const LazyLessonsPage = lazy(() =>
   }))
 );
 
+export const LazyLessonView = lazy(() => 
+  import('../pages/LessonView').then(module => ({
+    default: module.default
+  }))
+);
+
+export const LazyVideoPlayerPage = lazy(() => 
+  import('../pages/VideoPlayerPage').then(module => ({
+    default: module.default
+  }))
+);
+
 // Wrapper component for lazy loading with suspense
 export const LazyWrapper = ({ children, fallback }) => (
   <Suspense fallback={fallback || <LazyLoader />}>
@@ -78,7 +90,7 @@ export const LazyWrapper = ({ children, fallback }) => (
 export const preloadCriticalComponents = () => {
   // Preload dashboard components
   import('../pages/StudentDashboard');
-  import('../pages/SmartReader');
+  import('../pages/Reports');
   import('../pages/Progress');
 };
 

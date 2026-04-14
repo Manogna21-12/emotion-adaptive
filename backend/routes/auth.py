@@ -107,21 +107,12 @@ async def login(credentials: UserLogin):
     )
 
     if not user:
-        print(f"[auth] ❌ Login failed: User not found for email {credentials.email.lower()}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password."
         )
 
-    # Robust password check ...
-    print(f"[auth] 🔍 Verifying password for {credentials.email.lower()}...")
-
-    # Robust password check (handles both string and binary storage)
-    stored_password = user["password"]
-    if isinstance(stored_password, str):
-        stored_password = stored_password.encode('utf-8')
-    
-    if not bcrypt.checkpw(credentials.password.encode('utf-8'), stored_password):
+    if not bcrypt.checkpw(credentials.password.encode('utf-8'), user["password"].encode('utf-8')):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password."

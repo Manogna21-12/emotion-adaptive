@@ -101,7 +101,40 @@ export const useProgress = (userId) => {
   });
 };
 
+// Optimized reports hooks
+export const useReportsSummary = (userId) => {
+  const queryKey = apiKeys.reportsSummary(userId);
+  
+  return useQuery({
+    queryKey,
+    queryFn: () => optimizedApi.getReportsSummary(userId),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 15 * 60 * 1000, // 15 minutes
+    initialData: () => {
+      return localStorageCache.get(`cache_reports_summary_${userId}`);
+    },
+    onSuccess: (data) => {
+      localStorageCache.set(`cache_reports_summary_${userId}`, data);
+    },
+  });
+};
 
+export const useUserReports = (userId) => {
+  const queryKey = apiKeys.reports(userId);
+  
+  return useQuery({
+    queryKey,
+    queryFn: () => optimizedApi.getUserReports(userId),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 15 * 60 * 1000,
+    initialData: () => {
+      return localStorageCache.get(`cache_reports_${userId}`);
+    },
+    onSuccess: (data) => {
+      localStorageCache.set(`cache_reports_${userId}`, data);
+    },
+  });
+};
 
 // Batch data hook for instant dashboard loading
 export const useBatchDashboardData = (userId) => {
@@ -117,9 +150,10 @@ export const useBatchDashboardData = (userId) => {
       const summary = localStorageCache.get(`cache_dashboard_summary_${userId}`);
       const emotions = localStorageCache.get(`cache_dashboard_emotions_${userId}`);
       const progress = localStorageCache.get(`cache_progress_${userId}`);
+      const reports = localStorageCache.get(`cache_reports_summary_${userId}`);
       
-      if (summary || emotions || progress) {
-        return [summary, emotions, progress];
+      if (summary || emotions || progress || reports) {
+        return [summary, emotions, progress, reports];
       }
       return null;
     },
@@ -128,6 +162,7 @@ export const useBatchDashboardData = (userId) => {
       if (data[0]) localStorageCache.set(`cache_dashboard_summary_${userId}`, data[0]);
       if (data[1]) localStorageCache.set(`cache_dashboard_emotions_${userId}`, data[1]);
       if (data[2]) localStorageCache.set(`cache_progress_${userId}`, data[2]);
+      if (data[3]) localStorageCache.set(`cache_reports_summary_${userId}`, data[3]);
     },
   });
 };
@@ -197,8 +232,23 @@ export const usePrefetchData = () => {
     });
   }, [queryClient]);
   
+  const prefetchReportsData = useCallback((userId) => {
+    queryClient.prefetchQuery({
+      queryKey: apiKeys.reportsSummary(userId),
+      queryFn: () => optimizedApi.getReportsSummary(userId),
+      staleTime: 5 * 60 * 1000,
+    });
+    
+    queryClient.prefetchQuery({
+      queryKey: apiKeys.reports(userId),
+      queryFn: () => optimizedApi.getUserReports(userId),
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [queryClient]);
+  
   return {
     prefetchDashboardData,
+    prefetchReportsData,
   };
 };
 
@@ -208,17 +258,19 @@ export const useAllDashboardData = (userId) => {
   const emotions = useDashboardEmotions(userId);
   const timeline = useDashboardTimeline(userId);
   const progress = useProgress(userId);
+  const reportsSummary = useReportsSummary(userId);
   
-  const isLoading = summary.isLoading || emotions.isLoading || progress.isLoading;
-  const isError = summary.isError || emotions.isError || progress.isError;
-  const error = summary.error || emotions.error || progress.error;
+  const isLoading = summary.isLoading || emotions.isLoading || progress.isLoading || reportsSummary.isLoading;
+  const isError = summary.isError || emotions.isError || progress.isError || reportsSummary.isError;
+  const error = summary.error || emotions.error || progress.error || reportsSummary.error;
   
   const data = useMemo(() => ({
     summary: summary.data,
     emotions: emotions.data,
     timeline: timeline.data,
     progress: progress.data,
-  }), [summary.data, emotions.data, timeline.data, progress.data]);
+    reportsSummary: reportsSummary.data,
+  }), [summary.data, emotions.data, timeline.data, progress.data, reportsSummary.data]);
   
   return {
     data,
@@ -230,6 +282,7 @@ export const useAllDashboardData = (userId) => {
       emotions.refetch();
       timeline.refetch();
       progress.refetch();
+      reportsSummary.refetch();
     },
   };
 };

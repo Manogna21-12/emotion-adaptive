@@ -15,8 +15,5 @@ aiosqlite
 reportlab==4.0.8
 pytz
 numpy
-anyio
 fastapi-cache2
 redis
-tf-keras
-tensorflow-cpu

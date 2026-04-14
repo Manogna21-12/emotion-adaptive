@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion-Adaptive Learning</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-neutral">
+    <div class="container">
+        <header>
+            <h1>AI Emotion-Adaptive Learning</h1>
+            <p>Your curriculum intelligently adapts to your state of mind.</p>
+            <div class="controls flex-row">
+                <button id="simulate-happy" class="btn">Simulate Happy</button>
+                <button id="simulate-confused" class="btn">Simulate Confused</button>
+                <button id="simulate-sad" class="btn">Simulate Sad</button>
+                <button id="clear-filter" class="btn btn-outline">Clear State</button>
+            </div>
+            <div id="status-badge" class="badge">Current State: Neutral</div>
+        </header>
+
+        <section id="recommended-section" class="hidden">
+            <div class="section-header">
+                <h2>✨ AI Suggestions For You</h2>
+                <p>Based on your latest emotional response</p>
+            </div>
+            <div id="recommended-container" class="grid-3">
+                <!-- Skeleton / Cards go here -->
+            </div>
+        </section>
+
+        <section id="all-videos-section">
+            <div class="section-header">
+                <h2>📚 Learning Materials</h2>
+            </div>
+            <div id="all-videos-container" class="grid-3">
+                <!-- Skeleton / Cards go here -->
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@ import axios from "axios";
 
 // Optimized axios configuration
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
+  baseURL: import.meta.env.VITE_API_URL || "",
   timeout: 5000, // 5 second timeout
   headers: {
     "Content-Type": "application/json",
@@ -56,6 +56,8 @@ export const apiKeys = {
   dashboardEmotions: (userId) => ["dashboard", "emotions", userId],
   dashboardTimeline: (userId) => ["dashboard", "timeline", userId],
   progress: (userId) => ["progress", userId],
+  reports: (userId) => ["reports", userId],
+  reportsSummary: (userId) => ["reports", "summary", userId],
   user: (userId) => ["user", userId],
 };
 
@@ -94,7 +96,16 @@ export const optimizedApi = {
     return response.data;
   },
 
+  // Reports APIs
+  getReportsSummary: async (userId) => {
+    const response = await apiClient.get(`/reports/summary/${userId}`);
+    return response.data;
+  },
 
+  getUserReports: async (userId) => {
+    const response = await apiClient.get(`/reports/${userId}`);
+    return response.data;
+  },
 
   // Batch API - Single request for multiple endpoints
   batchRequest: async (requests) => {
@@ -108,6 +119,7 @@ export const optimizedApi = {
       { endpoint: "dashboard/summary", params: { user_id: userId } },
       { endpoint: "dashboard/emotions", params: { user_id: userId } },
       { endpoint: "progress", params: { user_id: userId } },
+      { endpoint: "reports/summary", params: { user_id: userId } },
     ];
     
     const response = await apiClient.post("/batch", requests);
@@ -194,7 +206,14 @@ export const optimisticUpdates = {
     return updatedData;
   },
 
-
+  // Update reports data instantly
+  updateReportsData: (userId, newReports) => {
+    const cacheKey = `cache_reports_${userId}`;
+    const existingData = localStorageCache.get(cacheKey) || {};
+    const updatedData = { ...existingData, ...newReports };
+    localStorageCache.set(cacheKey, updatedData);
+    return updatedData;
+  },
 };
 
 // Performance utilities

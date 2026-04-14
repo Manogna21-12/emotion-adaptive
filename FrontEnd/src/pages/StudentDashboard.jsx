@@ -6,7 +6,7 @@ import { Zap, Clock, BrainCircuit, PlayCircle, TrendingUp, Sparkles, Activity, F
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Bar } from "recharts";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { dashboardApi, learningApi, streakApi } from "../services/api";
+import { dashboardApi, learningApi, reportsApi, streakApi } from "../services/api";
 import { useStreakTracker } from "../hooks/useStreakTracker";
 import MinimalStreakWidget, { MetricCard } from "../components/StreakWidget";
 
@@ -95,7 +95,7 @@ export default function StudentDashboard() {
         console.log("🔄 Fetching dashboard data...");
 
         // Use dashboard API for real-time data + statistics from reports API
-        const [summary, emotions, timeline, emotionImpact, liveEmotion, u, notifs] = await Promise.all([
+        const [summary, emotions, timeline, emotionImpact, liveEmotion, u, notifs, stats] = await Promise.all([
           dashboardApi.getSummary(userId).catch((err) => {
             console.error("Dashboard summary API error:", err);
             return {
@@ -129,14 +129,24 @@ export default function StudentDashboard() {
           dashboardApi.getNotifications(userId).catch((err) => {
             console.error("Notifications API error:", err);
             return [];
+          }),
+          reportsApi.getSummary(userId).catch((err) => {
+             console.error("Stats API error:", err);
+             return { total_time_spent: 0, current_streak: 0, total_sessions: 0 };
           })
         ]);
 
         if (cancelled) return;
         
-        console.log("📊 Dashboard data received:", { summary, emotions, timeline, emotionImpact, liveEmotion });
+        console.log("📊 Dashboard data received:", { summary, stats, emotions, timeline, emotionImpact, liveEmotion });
         
-        setSummary(summary);
+        // Merge stats into summary for UI display
+        setSummary({
+          ...summary,
+          time_spent_minutes: stats.total_time, // Use SQL cumulative time
+          current_streak: stats.current_streak, // Use SQL streak
+          total_sessions: stats.sessions
+        });
         setEmotionLogs(emotions);
         setTimelineData(timeline.timeline || []);
         setEmotionImpact(emotionImpact);
@@ -195,7 +205,7 @@ export default function StudentDashboard() {
     focusScore: summary?.focus_score_today || 0,
     timeSpent: summary?.time_spent_minutes || 0,
     streak: summary?.current_streak || 0,
-    topics: summary?.topics_mastered || 0,
+    topics: summary?.lessons_completed || 0,
     cognitive_state: summary?.cognitive_state || "Neutral",
   };
 

@@ -4,11 +4,10 @@ import { notifyUnauthorized } from "./authSession";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Vite exposes env vars on import.meta.env.* (must be prefixed with VITE_)
-// Fallback to localhost:5000 for local development
-const API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || "http://localhost:5000";
+const API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || "";
 
-if (import.meta.env.DEV && !import.meta.env.VITE_API_URL) {
-  console.warn("⚠️  VITE_API_URL not set — using fallback: http://localhost:5000");
+if (!API_BASE_URL) {
+  console.error("❌ VITE_API_URL is not defined in the environment variables!");
 }
 
 

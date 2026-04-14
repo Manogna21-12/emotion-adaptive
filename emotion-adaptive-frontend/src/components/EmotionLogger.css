@@ -1,0 +1,180 @@
+/* Emotion Logger Styles */
+.emotion-logger {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 24px;
+  color: white;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.emotion-logger-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.emotion-logger-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: white;
+}
+
+.emotion-logger-header p {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.9;
+  line-height: 1.5;
+}
+
+.cooldown-message {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 12px;
+  font-size: 14px;
+  color: white;
+  text-align: center;
+}
+
+.emotion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.emotion-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.emotion-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.emotion-button.selected {
+  background: var(--emotion-color);
+  border-color: var(--emotion-color);
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.emotion-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.emotion-button:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.emotion-icon-display {
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.emotion-label {
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.loading-spinner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.emotion-logger-footer {
+  text-align: center;
+  opacity: 0.8;
+}
+
+.emotion-logger-footer small {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Animation for loading spinner */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .emotion-logger {
+    padding: 20px;
+    margin: 0 16px;
+  }
+  
+  .emotion-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .emotion-button {
+    padding: 16px 12px;
+  }
+  
+  .emotion-icon-display {
+    font-size: 28px;
+  }
+  
+  .emotion-label {
+    font-size: 13px;
+  }
+  
+  .emotion-logger-header h3 {
+    font-size: 20px;
+  }
+  
+  .emotion-logger-header p {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .emotion-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .emotion-button {
+    padding: 20px 16px;
+    flex-direction: row;
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  .emotion-icon-display {
+    font-size: 24px;
+    margin-bottom: 0;
+  }
+}

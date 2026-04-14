@@ -1,0 +1,29 @@
+services:
+  # Web Service
+  - type: web
+    name: deepface-emotion-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+      - key: FLASK_ENV
+        value: production
+      - key: DEEPFACE_BACKEND
+        value: tensorflow
+
+# Build optimizations for Render
+build:
+  # Use pip cache for faster builds
+  pipCache: true
+  
+# Health check configuration
+healthChecks:
+  web:
+    - path: /
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5

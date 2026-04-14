@@ -34,7 +34,7 @@ export default function TopNavbar() {
         </label>
         <input 
           type="text" 
-          placeholder="Search lessons, progress, smart reader..."
+          placeholder="Search lessons, progress, reports..."
           className="block w-full pl-10 pr-3 py-2 border border-glass-border rounded-2xl leading-5 bg-glass-base text-root-fg placeholder:text-text-muted hover:bg-glass-hover focus:outline-none focus:bg-glass-base focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/50 transition-all focus:shadow-[0_0_20px_-5px_rgba(var(--brand-500),0.3)] shadow-inner"
         />
       </div>

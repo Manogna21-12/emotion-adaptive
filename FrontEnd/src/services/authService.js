@@ -10,4 +10,6 @@ export const getUserById = (userId) =>
 export const forgotPassword = (email) => http.post(`/auth/forgot-password`, { email });
 export const resetPassword = (token, newPassword) =>
   http.post(`/auth/reset-password`, { token, new_password: newPassword });
-
+/** Notify backend a new session has started (increments session count). */
+export const logLogin = (userId) =>
+  http.post(`/reports/log-login`, { user_id: userId, session_duration: 0 });

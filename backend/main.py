@@ -16,11 +16,7 @@ from routes.progress_pg import router as progress_router
 from routes.streak import router as streak_router
 from routes.notifications import router as notifications_router, api_notifications_router
 from routes.quizzes import router as quizzes_router
-from routes.smart_reader import router as smart_reader_router
-from routes.adaptive_quiz import router as adaptive_quiz_router
-from routes.feedback import router as feedback_router
 from database import init_db_indexes
-
 from models import UserLogin
 import config  # Import config to initialize cloudinary
 import asyncio
@@ -88,10 +84,6 @@ app.include_router(streak_router)
 app.include_router(notifications_router)
 app.include_router(api_notifications_router)
 app.include_router(quizzes_router)
-app.include_router(smart_reader_router)
-app.include_router(adaptive_quiz_router)
-app.include_router(feedback_router)
-
 
 @app.on_event("startup")
 async def startup_event():
@@ -122,15 +114,8 @@ async def startup_event():
 
 @app.post("/login")
 async def root_login(payload: UserLogin):
-    try:
-        print(f"[auth] 🚀 Received root login attempt for: {payload.email}")
-        return await auth_login(payload)
-    except HTTPException as e:
-        print(f"[auth] ⚠️ Login failed in root_login: {e.status_code} - {e.detail}")
-        raise e
-    except Exception as e:
-        print(f"[auth] 💥 Unexpected system error during login: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal system error during login")
+    print(f"[auth] POST /login email={getattr(payload, 'email', None)}")
+    return await auth_login(payload)
 
 @app.get("/")
 def root():
@@ -141,4 +126,3 @@ def root():
 def health():
     """Liveness probe for frontend and load balancers (no DB dependency)."""
     return {"status": "OK", "service": "emotion-adaptive-learning-api"}
-# reload

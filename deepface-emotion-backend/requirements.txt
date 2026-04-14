@@ -1,0 +1,20 @@
+# Core Flask Framework
+flask==2.3.3
+gunicorn==21.2.0
+flask-cors==4.0.0
+
+# DeepFace and ML Dependencies
+deepface==0.0.79
+tensorflow==2.13.0
+opencv-python-headless==4.8.1.78
+
+# Data Processing
+numpy==1.24.3
+pandas==2.0.3
+
+# Image Processing
+Pillow==10.0.1
+
+# Utilities
+python-dotenv==1.0.0
+werkzeug==2.3.7

@@ -13,8 +13,7 @@ import {
   Smile,
   Frown,
   Meh,
-  Zap,
-  Book
+  Zap
 } from "lucide-react";
 import clsx from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -28,7 +27,7 @@ const SIDEBAR_ITEMS = [
   { name: "Progress Dashboard", path: "/student-dashboard", icon: LayoutDashboard },
   { name: "Learning", path: "/courses", icon: BookOpen },
   { name: "Progress", path: "/progress", icon: TrendingUp },
-  { name: "Smart Reader", path: "/reader", icon: Book },
+  { name: "Reports", path: "/reports", icon: FileText },
   { name: "Settings", path: "/profile", icon: Settings },
 ];
 

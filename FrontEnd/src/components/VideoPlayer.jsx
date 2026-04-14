@@ -3,11 +3,6 @@ import { motion } from "framer-motion";
 import { Activity, Play, Camera, CameraOff } from "lucide-react";
 import { learningApi } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
-import useAdaptiveQuiz from "../hooks/useAdaptiveQuiz";
-import AdaptiveQuizModal from "./AdaptiveQuizModal";
-import FeedbackModal from "./FeedbackModal";
-import { Coffee } from "lucide-react";
-import { AnimatePresence } from "framer-motion";
 
 export default function VideoPlayer({ lesson, nextLesson }) {
   const { user } = useAuth();
@@ -29,40 +24,6 @@ export default function VideoPlayer({ lesson, nextLesson }) {
   const startTimeRef = useRef(null);
   const timeSpentRef = useRef(0);
   const [timeSpent, setTimeSpent] = useState(0);
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const feedbackShownRef = useRef(false); // prevent showing twice
-
-  // Unified Adaptive Quiz Hook
-  const {
-    isQuizOpen,
-    openQuiz,
-    closeQuiz,
-    isPausedByEmotion,
-    setIsPausedByEmotion,
-    pauseCountdown,
-    emotionHistory,
-    currentEmotion: adaptiveEmotion,
-    registerDetection
-  } = useAdaptiveQuiz({
-    userId: user?._id || user?.id,
-    courseId: lesson?.courseId || "default",
-    lessonId: lesson?.lesson_id || lesson?.id || lesson?._id,
-    triggerIntervalMS: 30000 // 30 seconds
-  });
-
-  // Automatically pause/resume video when quiz opens/closes
-  useEffect(() => {
-    if (videoRef.current) {
-      if (isQuizOpen) {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      } else if (!isPausedByEmotion) {
-        // Resume playback after quiz closes, unless we are in a frustration break
-        videoRef.current.play().catch(() => {});
-        setIsPlaying(true);
-      }
-    }
-  }, [isQuizOpen, isPausedByEmotion]);
 
   useEffect(() => {
     if (lesson) {
@@ -171,21 +132,17 @@ export default function VideoPlayer({ lesson, nextLesson }) {
         setCaptureFlash(true);
         setTimeout(() => setCaptureFlash(false), 200);
 
-          // Use lesson_id (from backend) with fallback to id/_id
-        if (lesson && user) {
-          const lessonId = lesson.lesson_id || lesson.id || lesson._id;
+        // Always log to database on every 30-second interval capture
+        if (lesson && lesson.id && user) {
           const userId = user._id || user.id;
-          if (userId && lessonId) {
+          if (userId) {
             console.log("[Emotion System] Logged new exact 30s capture to DB!");
             await learningApi.logEmotion(
               userId,
-              lessonId,
+              lesson.id,
               res.emotion,
               res.focus || 0
             );
-            
-            // Link to Adaptive Quiz Hook
-            registerDetection(res.emotion, res.focus || 0);
           }
         }
       }
@@ -202,15 +159,14 @@ export default function VideoPlayer({ lesson, nextLesson }) {
   const handlePlay = async () => {
     setIsPlaying(true);
     startWebcam();
+    // Start time tracking
     if (!startTimeRef.current) {
       startTimeRef.current = Date.now();
       console.log("Time tracking started");
       try {
         const userId = user?._id || user?.id;
-        // Use lesson_id with fallback to id/_id
-        const lessonId = lesson?.lesson_id || lesson?.id || lesson?._id;
-        if (userId && lessonId) {
-          const res = await learningApi.startSession(userId, lesson.moduleId || "active_course", lessonId);
+        if (userId && lesson?.id) {
+          const res = await learningApi.startSession(userId, lesson.moduleId || "active_course", lesson.id);
           sessionIdRef.current = res.session_id;
           console.log("Started active backend session tracker: ", res.session_id);
         }
@@ -240,16 +196,6 @@ export default function VideoPlayer({ lesson, nextLesson }) {
 
   const handleEnded = () => {
     handlePauseOrEnd();
-    // Show feedback modal exactly once per lesson
-    if (!feedbackShownRef.current) {
-      feedbackShownRef.current = true;
-      setIsFeedbackOpen(true);
-    }
-  };
-
-  const handleFeedbackClose = () => {
-    setIsFeedbackOpen(false);
-    // Continue to next lesson after feedback
     if (nextLesson) nextLesson();
   };
 
@@ -405,55 +351,6 @@ export default function VideoPlayer({ lesson, nextLesson }) {
           {lesson.description || "In this module, you will cover essential techniques. Ensure you closely follow the examples and apply the concepts dynamically to maximize retention."}
         </p>
       </motion.div>
-
-      {/* Adaptive Quiz Modal */}
-      <AdaptiveQuizModal 
-        isOpen={isQuizOpen}
-        onClose={closeQuiz}
-        courseId={lesson?.courseId || "default"}
-        userId={user?._id || user?.id}
-        emotion={adaptiveEmotion}
-        focusScore={75} // placeholder or from res.focus
-        emotionHistory={emotionHistory}
-      />
-
-      {/* Frustration Break Popup */}
-      <AnimatePresence>
-        {isPausedByEmotion && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md"
-          >
-            <div className="bg-zinc-900 rounded-3xl border border-red-500/30 p-10 text-center max-w-md mx-4">
-               <Coffee className="w-16 h-16 text-red-500 mx-auto mb-6 animate-bounce" />
-               <h2 className="text-3xl font-bold text-white mb-4">You seem frustrated</h2>
-               <p className="text-zinc-400 mb-8 text-lg">
-                 Let's take a quick 2-minute break to reset.
-               </p>
-               <div className="text-5xl font-mono font-bold text-red-500 mb-8">
-                 {Math.floor(pauseCountdown / 60)}:{String(pauseCountdown % 60).padStart(2, '0')}
-               </div>
-               <button 
-                onClick={() => setIsPausedByEmotion(false)}
-                className="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition font-bold"
-               >
-                 I'm ready now
-               </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Lesson Feedback Modal */}
-      <FeedbackModal 
-        isOpen={isFeedbackOpen}
-        onClose={handleFeedbackClose}
-        lessonId={lesson?.lesson_id || lesson?.id || lesson?._id}
-        moduleId={lesson?.moduleId || "unknown"}
-        userId={user?._id || user?.id}
-      />
 
     </div>
   );

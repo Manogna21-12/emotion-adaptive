@@ -89,6 +89,35 @@ export const learningApi = {
     return response.data;
   },
 
+  // Reports APIs
+  getReportsSummary: async (userId) => {
+    const response = await http.get(`/reports/summary/${userId}`);
+    return response.data;
+  },
+  getReportsHeatmap: async (userId) => {
+    const response = await http.get(`/reports/heatmap/${userId}`);
+    return response.data;
+  },
+  getReportsSessions: async (userId) => {
+    const response = await http.get(`/reports/sessions/${userId}`);
+    return response.data;
+  },
+
+  // PDF Download API
+  downloadReport: async (userId) => {
+    const response = await http.post(`/reports/download/${userId}`, null, { responseType: "blob" });
+    return response;
+  },
+
+  // New Reports System APIs
+  generateReport: async (userId) => {
+    const response = await http.post(`/reports/generate/${userId}`);
+    return response.data;
+  },
+  getUserReports: async (userId) => {
+    const response = await http.get(`/reports/${userId}`);
+    return response.data;
+  },
   downloadReportFile: async (reportId) => {
     const response = await http.get(`/reports/download/${reportId}`, {
       responseType: 'blob'
@@ -139,7 +168,46 @@ export const progressApi = {
   },
 };
 
-
+export const reportsApi = {
+  getSummary: async (userId) => {
+    const response = await http.get(`/reports/${userId}`);
+    console.log("📊 API response (getSummary):", response.data);
+    return response.data;
+  },
+  logLogin: async (userId) => {
+    console.log(`🔑 [HTTP] Log Login: user=${userId}`);
+    const response = await http.post(`/reports/log-login`, { user_id: userId, session_duration: 0 });
+    return response.data;
+  },
+  getHistory: async (userId) => {
+    const response = await http.get(`/reports/history/${userId}`);
+    return response.data;
+  },
+  trackSession: async (userId, minutes) => {
+    console.log(`⏱️ [HTTP] Track Session: user=${userId}, minutes=${minutes}`);
+    const response = await http.post(`/reports/track-session`, { user_id: userId, session_duration: minutes });
+    console.log("🏁 API response (trackSession):", response.data);
+    return response.data;
+  },
+  generateSnapshot: async (userId, fileType = "pdf") => {
+    const response = await http.post(`/reports/generate`, { user_id: userId, file_type: fileType });
+    return response.data;
+  },
+  downloadSnapshot: async (reportId, fileType = "pdf") => {
+    const response = await http.get(`/reports/download/${reportId}`, {
+      params: { file_type: fileType },
+      responseType: "blob",
+    });
+    return response;
+  },
+  generateReportDirect: async (userId) => {
+    console.log(`📄 [HTTP] Direct PDF Generation for user=${userId}`);
+    const response = await http.get(`/reports/generate-report/${userId}`, {
+      responseType: "blob",
+    });
+    return response;
+  },
+};
 
 // ─── Streak & Daily Time Tracking API ─────────────────────────────────────────
 export const streakApi = {
@@ -249,48 +317,3 @@ export const quizzesApi = {
     return response.data;
   },
 };
-
-export const smartReaderApi = {
-  getConcepts: async () => {
-    const response = await http.get("/smart-reader");
-    return response.data;
-  },
-  getStats: async (userId, conceptId = null) => {
-    const params = { user_id: userId };
-    if (conceptId) params.concept_id = conceptId;
-    const response = await http.get("/smart-reader/stats", { params });
-    return response.data;
-  },
-  trackEmotion: async (payload) => {
-    const response = await http.post("/smart-reader/track-emotion", payload);
-    return response.data;
-  },
-  getLearningStats: async (userId) => {
-    const response = await http.get("/smart-reader/learning-stats", { params: { user_id: userId } });
-    return response.data;
-  }
-};
-
-export const adaptiveQuizApi = {
-  /** Fetch questions by course/lesson/difficulty */
-  getQuestions: async (courseId = "default", difficulty = "medium", { moduleId, lessonId, topic, limit } = {}) => {
-    const params = { course_id: courseId, difficulty };
-    if (moduleId) params.module_id = moduleId;
-    if (lessonId) params.lesson_id = lessonId;
-    if (topic) params.topic = topic;
-    if (limit) params.limit = limit;
-    const response = await http.get("/adaptive-quiz/questions", { params });
-    return response.data;
-  },
-  /** Submit an answer attempt */
-  submitAnswer: async (payload) => {
-    const response = await http.post("/adaptive-quiz/submit", payload);
-    return response.data;
-  },
-  /** Get user quiz stats */
-  getStats: async (userId) => {
-    const response = await http.get("/adaptive-quiz/stats", { params: { user_id: userId } });
-    return response.data;
-  },
-};
-

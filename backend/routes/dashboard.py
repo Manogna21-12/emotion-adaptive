@@ -90,87 +90,92 @@ async def get_emotion_impact(user_id: str):
 
 @router.get("/dashboard/summary/{user_id}")
 async def get_dashboard_summary(user_id: str):
-    print(f"Dashboard summary requested for: {user_id}")
+    print("Dashboard API called")
+    print("Received user_id (GET /dashboard/summary):", user_id)
     match = _user_match_query(user_id)
     
-    # Calculate today's date boundary in UTC for comparison with stored naive datetimes
+    # Calculate today's date boundaries in IST
     ist = pytz.timezone("Asia/Kolkata")
     now_ist = datetime.now(ist)
+    # Start of today in IST
     start_of_day_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
-    # Get the UTC equivalent of the start of the day in IST
-    today_start_utc = start_of_day_ist.astimezone(pytz.UTC).replace(tzinfo=None)
+    # Convert back to UTC for DB queries (since timestamps are stored in UTC)
+    today_utc = start_of_day_ist.astimezone(pytz.UTC)
     
-    from database import reader_emotion_logs_collection
+    print(f"Today boundaries - UTC: {today_utc}, IST: {start_of_day_ist}")
     
-    # TODAY'S METRICS (Focus and Time)
-    today_match = {"timestamp": {"$gte": today_start_utc}}
-    learning_logs_today = await emotion_logs_collection.find({**match, **today_match}).to_list(length=1000)
-    reader_logs_today = await reader_emotion_logs_collection.find({**match, **today_match}).to_list(length=1000)
-    all_logs_today = learning_logs_today + reader_logs_today
-    
-    # ALL-TIME METRICS (Mastery)
-    learning_logs_all = await emotion_logs_collection.find(match).to_list(length=5000)
-    reader_logs_all = await reader_emotion_logs_collection.find(match).to_list(length=5000)
-    all_logs_history = learning_logs_all + reader_logs_all
-    
-    focus_map = {
-        "happy": 95, "neutral": 85, "surprise": 80,
-        "sad": 40, "angry": 30, "fear": 35, "disgust": 20, "no_face": 0
+    # Get today's emotion logs for user
+    today_match = {
+        **match,
+        "timestamp": {
+            "$gte": today_utc,
+            "$lt": today_utc + timedelta(days=1)
+        }
     }
     
-    # Calculate Today's Focus
-    if not all_logs_today:
-        focus_score_today = 0
-        time_spent_minutes = 0
-    else:
-        total_focus = 0
-        for log in all_logs_today:
-            # Prefer explicit focus field if available, else map from emotion
-            score = log.get("focus") or log.get("focusLevel")
-            if score is None:
-                score = focus_map.get(log.get("emotion", "neutral").lower(), 70)
-            total_focus += float(score)
-        focus_score_today = int(total_focus / len(all_logs_today))
-        
-        time_spent_seconds = sum(log.get("duration", 0) for log in all_logs_today)
-        time_spent_minutes = round(time_spent_seconds / 60, 1)
-
-    # Calculate All-Time Topics Mastered
-    concept_stats = {}
-    for log in all_logs_history:
-        cid = log.get("concept_id") or log.get("lesson_id")
-        if not cid: continue
-        if cid not in concept_stats: concept_stats[cid] = []
-        
-        score = log.get("focus") or log.get("focusLevel")
-        if score is None:
-            score = focus_map.get(log.get("emotion", "neutral").lower(), 70)
-        concept_stats[cid].append(float(score))
+    cursor = emotion_logs_collection.find(today_match).sort("timestamp", 1)
+    today_logs = await cursor.to_list(length=None)
     
-    # A topic is mastered if its average focus score across all sessions is > 70
-    topics_mastered = sum(1 for scores in concept_stats.values() if (sum(scores)/len(scores)) > 70)
+    print(f"Logs found: {len(today_logs)}")
     
-    # Current Streak
+    if not today_logs:
+        return {
+            "focus_score_today": 0,
+            "time_spent_minutes": 0,
+            "current_streak": 0,
+            "lessons_completed": 0,
+            "cognitive_state": "Neutral"
+        }
+    
+    # Calculate focus score today
+    focus_scores = [float(log.get('focus', log.get('focusLevel', 0))) for log in today_logs if log.get('focus') is not None or log.get('focusLevel') is not None]
+    focus_score_today = int(sum(focus_scores) / len(focus_scores)) if focus_scores else 0
+    
+    # Calculate time spent dynamically from true learning sessions today
+    time_spent_minutes = 0
+    from database import learning_sessions_collection
+    session_cursor = learning_sessions_collection.find({
+        **match,
+        "start_time": {
+            "$gte": today_utc,
+            "$lt": today_utc + timedelta(days=1)
+        }
+    })
+    sessions_today = await session_cursor.to_list(length=None)
+    
+    for session in sessions_today:
+        time_spent_minutes += session.get("duration_minutes", 0)
+        
+    print(f"Total time calculated from learning sessions: {time_spent_minutes} minutes")
+        
+    # Calculate streak from userstats collection
     user_stat = await userstats_collection.find_one({"user_id": user_id})
-    current_streak = user_stat.get("current_streak", 0) if user_stat else 0
+    current_streak = 0
+    if user_stat and "current_streak" in user_stat:
+        current_streak = user_stat["current_streak"]
+        print(f"Streak from DB: {current_streak}")
     
-    # Cognitive state (Today)
-    if focus_score_today > 75: cognitive_state = "Deep Focus"
-    elif focus_score_today > 45: cognitive_state = "Normal"
-    else: cognitive_state = "Distracted"
+    # Lessons completed (unique lessons with activity)
+    lessons_completed = len({str(log.get('lesson_id', log.get('lessonId'))) for log in today_logs if log.get('lesson_id') or log.get('lessonId')})
+    
+    # Cognitive state
+    if focus_score_today > 70:
+        cognitive_state = "Deep Focus"
+    elif focus_score_today >= 40:
+        cognitive_state = "Normal"
+    else:
+        cognitive_state = "Low Attention"
         
-    return {
+    result = {
         "focus_score_today": focus_score_today,
         "time_spent_minutes": time_spent_minutes,
         "current_streak": current_streak,
-        "lessons_completed": len(concept_stats),
-        "cognitive_state": cognitive_state,
-        "topics_mastered": topics_mastered
+        "lessons_completed": lessons_completed,
+        "cognitive_state": cognitive_state
     }
-
-@router.get("/dashboard-stats")
-async def get_dashboard_stats(user_id: str):
-    return await get_dashboard_summary(user_id)
+    
+    print(f"Dashboard summary result: {result}")
+    return result
 
 
 @router.get("/dashboard/emotions/{user_id}")

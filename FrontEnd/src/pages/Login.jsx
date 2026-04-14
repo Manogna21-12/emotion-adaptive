@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Mail, Lock, ArrowRight, Loader2, BrainCircuit, Activity, Sparkles, User, Fingerprint, Eye, EyeOff } from "lucide-react";
-
+import { reportsApi } from "../services/api";
 
 // The breathtaking interactive AI Core visual
 function AICoreVisual() {
@@ -142,6 +142,10 @@ export default function Login() {
       const result = await loginUser(form);
       if (result.success) {
         const userId = result.user.id || result.user.user_id;
+        // Logic to increment login session count in analytics
+        if (userId) {
+          reportsApi.logLogin(userId).catch(err => console.error("Login analytics failed:", err));
+        }
 
         const role = result.user.role;
         setLoading(false);

@@ -12,7 +12,6 @@ import {
   useUpdateDashboardData 
 } from "../hooks/useOptimizedQueries";
 import { performanceUtils } from "../services/optimizedApi";
-import { Calendar, Clock, Target, Flame, RefreshCw } from "lucide-react";
 
 // Skeleton Loader Components
 const DashboardSkeleton = memo(() => (
@@ -170,6 +169,7 @@ const OptimizedDashboard = ({ userId }) => {
       emotions: data.emotions || {},
       timeline: data.timeline || [],
       progress: data.progress || {},
+      reportsSummary: data.reportsSummary || {}
     };
   }, [data]);
 
@@ -182,28 +182,28 @@ const OptimizedDashboard = ({ userId }) => {
       {
         title: "Total Sessions",
         value: summary.total_sessions || 0,
-        icon: Calendar,
+        icon: require("lucide-react").Calendar,
         color: "bg-blue-500",
         trend: 12
       },
       {
         title: "Focus Time",
         value: `${summary.total_time || 0}m`,
-        icon: Clock,
+        icon: require("lucide-react").Clock,
         color: "bg-green-500",
         trend: 8
       },
       {
         title: "Avg Focus",
         value: `${summary.avg_focus || 0}%`,
-        icon: Target,
+        icon: require("lucide-react").Target,
         color: "bg-purple-500",
         trend: -3
       },
       {
         title: "Streak",
         value: `${summary.streak_days || 0} days`,
-        icon: Flame,
+        icon: require("lucide-react").Flame,
         color: "bg-orange-500",
         trend: 15
       }
@@ -263,7 +263,7 @@ const OptimizedDashboard = ({ userId }) => {
           onClick={refetch}
           className="p-2 bg-glass-base border border-glass-border rounded-lg hover:bg-glass-hover transition-colors"
         >
-          <RefreshCw className="w-5 h-5" />
+          <require("lucide-react").RefreshCw className="w-5 h-5" />
         </button>
       </div>
 

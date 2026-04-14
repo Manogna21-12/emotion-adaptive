@@ -8,7 +8,7 @@ import {
   LazyWrapper,
   LazyStudentDashboard,
   LazyAdminDashboard,
-  LazyReader,
+  LazyReports,
   LazyProgress,
   LazyProfile,
   LazyCoursesPage,
@@ -91,11 +91,11 @@ function AppSimple() {
               />
 
               <Route
-                path="/reader"
+                path="/reports"
                 element={
                   <ProtectedRoute>
                     <LazyWrapper>
-                      <LazyReader />
+                      <LazyReports />
                     </LazyWrapper>
                   </ProtectedRoute>
                 }

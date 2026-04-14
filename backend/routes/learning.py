@@ -122,7 +122,6 @@ async def get_lessons(module_id: str):
                 "id": str(d["_id"]),
                 "moduleId": _as_str_id(d.get("moduleId", module_id)),
                 "title": d.get("title", ""),
-                "lesson_id": _as_str_id(d.get("lesson_id", d["_id"])),
                 "videoUrl": d.get("videoUrl"),
                 "duration": d.get("duration"),
                 # Optional fields used by some UI components
@@ -242,13 +241,7 @@ async def analyze_emotion(req: EmotionAnalyzeRequest):
         # 4. DeepFace Analysis
         try:
             print("[DEBUG] Starting DeepFace.analyze...")
-            # Run the CPU-intensive DeepFace call in a separate thread so the server doesn't freeze
-            import anyio
-            def _analyze():
-                return DeepFace.analyze(img, actions=['emotion'], enforce_detection=False)
-            
-            results = await anyio.to_thread.run_sync(_analyze)
-            
+            results = DeepFace.analyze(img, actions=['emotion'], enforce_detection=False)
             result = results[0] if isinstance(results, list) else results
             dominant_emotion = result.get('dominant_emotion')
             print(f"[DEBUG] Raw analysis result: {dominant_emotion}")

@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { login, signup, getCurrentUser } from "../services/authService";
+import { login, signup, getCurrentUser, logLogin } from "../services/authService";
 import {
   getApiBaseUrl,
   checkBackendHealth,
@@ -177,8 +177,12 @@ export const AuthProvider = ({ children }) => {
     }
     loginInFlight.current = true;
     try {
-      // Allow the actual login request to handle network errors directly.
-      runHealthCheck(); // Fire-and-forget to update state if needed
+      const ok = await runHealthCheck();
+      if (!ok) {
+        const err = new Error("The authentication server is currently unreachable. Please try again later.");
+        err.name = "BackendDownError";
+        throw err;
+      }
 
       const response = await login(credentials);
       const { token, user_id, name, role } = response.data;
@@ -199,7 +203,11 @@ export const AuthProvider = ({ children }) => {
       };
       setUser(userData);
 
-
+      // Fire-and-forget: notify backend to record session (non-blocking)
+      // Note: auth.py already does this server-side; this is a client-side safety call
+      logLogin(user_id).catch((e) =>
+        console.warn("[Auth] logLogin call failed (non-fatal):", e?.message)
+      );
 
       return { success: true, user: userData };
     } catch (error) {
@@ -219,8 +227,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signupUser = async (userData) => {
-    // Fire-and-forget to update state
-    runHealthCheck();
+    const ok = await runHealthCheck();
+    if (!ok) {
+      const err = new Error("The registration server is currently unreachable. Please try again later.");
+      err.name = "BackendDownError";
+      throw err;
+    }
     await signup(userData);
     return { success: true };
   };
