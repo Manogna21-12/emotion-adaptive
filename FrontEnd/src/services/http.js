@@ -16,6 +16,22 @@ const MAX_RETRIES = 3;
 export const http = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
+  paramsSerializer: {
+    serialize: (params) => {
+      const parts = [];
+      for (const [key, value] of Object.entries(params || {})) {
+        if (value === null || typeof value === 'undefined') continue;
+        if (Array.isArray(value)) {
+          value.forEach((v) => {
+            parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+          });
+        } else {
+          parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+        }
+      }
+      return parts.join('&');
+    }
+  }
 });
 
 http.interceptors.request.use((config) => {

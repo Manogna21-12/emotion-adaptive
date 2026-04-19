@@ -23,7 +23,9 @@ export default function QuizLearningPopup({
   topic,
   currentEmotion,
   focusScore,
-  userId
+  userId,
+  askedQuizIds = [],
+  onQuestionFetched
 }) {
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,11 +35,16 @@ export default function QuizLearningPopup({
   const [showExplanation, setShowExplanation] = useState(false);
   const [difficulty, setDifficulty] = useState('medium');
 
-  // 1. Determine Difficulty based on Emotion + Focus
+  // 1. Reset state and fetch new question when popup opens
   useEffect(() => {
-    if (isOpen && !question) {
+    if (isOpen) {
+      setQuestion(null);
+      setSelectedOption(null);
+      setIsSubmitted(false);
+      setIsCorrect(null);
+      setShowExplanation(false);
+
       let targetDifficulty = 'medium';
-      
       if (currentEmotion === 'happy') {
         targetDifficulty = 'hard';
       } else if (currentEmotion === 'neutral') {
@@ -49,7 +56,7 @@ export default function QuizLearningPopup({
       setDifficulty(targetDifficulty);
       fetchQuestion(targetDifficulty);
     }
-  }, [isOpen, currentEmotion, focusScore, question]);
+  }, [isOpen, currentEmotion]); // Refetch if emotion changes while open is also fine
 
   const fetchQuestion = async (diff) => {
     setLoading(true);
@@ -59,9 +66,13 @@ export default function QuizLearningPopup({
         module_id: moduleId,
         lesson_id: lessonId,
         topic: topic,
-        difficulty: diff
+        difficulty: diff,
+        exclude_ids: askedQuizIds
       });
       setQuestion(data);
+      if (data && data.id && onQuestionFetched) {
+        onQuestionFetched(data.id);
+      }
     } catch (err) {
       console.error("Failed to fetch adaptive quiz:", err);
     } finally {

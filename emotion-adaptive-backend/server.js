@@ -249,13 +249,11 @@ async function startServer() {
     // Start HTTP server - CRITICAL: PORT 8000
     server.listen(PORT, '0.0.0.0', () => {
       const timestamp = new Date().toISOString();
-      console.log(`🚀 [${timestamp}] Server running on https://emotion-adaptive.onrender.com`);
-      console.log(` [${timestamp}] Server also accessible on http://0.0.0.0:8000`);
-      console.log(`🔧 [${timestamp}] CORS configured for: http://localhost:5173, http://localhost:3000`);
-      console.log(`❤️ [${timestamp}] Health check available at: https://emotion-adaptive.onrender.com/health`);
-      console.log(`💓 [${timestamp}] Heartbeat endpoint at: https://emotion-adaptive.onrender.com/streak/heartbeat`);
-      console.log(`🧪 [${timestamp}] Test endpoint at: https://emotion-adaptive.onrender.com/api/test`);
-      console.log(`🌍 [${timestamp}] Environment: ${NODE_ENV}`);
+      console.log(`🚀 [${timestamp}] Server running on http://localhost:8000`);
+      console.log(`📡 [${timestamp}] Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`❤️ [${timestamp}] Health check available at: http://localhost:8000/health`);
+      console.log(`💓 [${timestamp}] Heartbeat endpoint at: http://localhost:8000/streak/heartbeat`);
+      console.log(`🧪 [${timestamp}] Test endpoint at: http://localhost:8000/api/test`);
       console.log(`📊 [${timestamp}] MongoDB: ${MONGODB_URI}`);
       console.log(`🔌 [${timestamp}] Socket.IO: Enabled`);
       console.log(`📡 [${timestamp}] Change Stream: Enabled`);

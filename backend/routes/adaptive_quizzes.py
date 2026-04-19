@@ -37,88 +37,90 @@ async def get_adaptive_quiz(
     module_id: Optional[str] = None,
     lesson_id: Optional[str] = None,
     topic: Optional[str] = None,
-    difficulty: str = "medium"
+    difficulty: str = "medium",
+    exclude_ids: Optional[List[str]] = Query(None)
 ):
     """
     Fetches a random quiz question based on filters and difficulty.
-    Falls back to MEDIUM difficulty if specific difficulty is not found.
+    Prevents repetition by excluding IDs in exclude_ids.
     """
     query = {}
     
-    # Step 1: Identify context
+    # Identify context
     if course_id and course_id != "undefined": query["course_id"] = course_id
     if module_id and module_id != "undefined": query["module_id"] = module_id
     if lesson_id and lesson_id != "undefined": query["lesson_id"] = lesson_id
     
-    # Step 2: Difficulty handled by caller
-    # Step 3: Initial Query
     if topic and topic != "undefined": 
         query["topic"] = {"$regex": f"^{topic}$", "$options": "i"}
     query["difficulty"] = difficulty
 
-    print(f"[DEBUG] Quiz Request: Lesson={lesson_id}, Topic={topic}, Diff={difficulty}")
+    # Add exclusion filter if provided
+    exclude_list = []
+    if exclude_ids:
+        exclude_list = [ObjectId(eid) for eid in exclude_ids if ObjectId.is_valid(eid)]
+        if exclude_list:
+            query["_id"] = {"$nin": exclude_list}
+
+    print(f"[DEBUG] Quiz Request: Lesson={lesson_id}, Topic={topic}, Diff={difficulty}, ExcludeCount={len(exclude_list)}")
     
-    async def run_query(q):
-        print(f"[DEBUG] Attempting Query: {q}")
-        pipeline = [{"$match": q}, {"$sample": {"size": 1}}]
-        cursor = adaptive_quizzes_collection.aggregate(pipeline)
-        res = await cursor.to_list(length=1)
-        print(f"[DEBUG] Results found: {len(res)}")
-        return res
-
-    # ---------------------------------------------------------
-    # TIERED SEARCH ARCHITECTURE (Ensures quiz works on all videos)
-    # ---------------------------------------------------------
-
     # 1. Primary Attempt (Full Context: Topic + Difficulty + Lesson ID)
     results = await adaptive_quizzes_collection.find(query).to_list(length=100)
     
+    # Helper to filter results manually to catch any edge cases (e.g. mixed string/ObjectId)
+    def filter_reps(q_list):
+        if not exclude_ids: return q_list
+        return [q for q in q_list if str(q["_id"]) not in exclude_ids]
+
+    results = filter_reps(results)
+    
     # 2. Fallback: Topic Title Match (Bridges dummy ID data)
     if not results and topic and topic != "undefined":
-        print(f"[TIER 2] Searching by Topic Title: '{topic}'...")
         t_query = {"topic": {"$regex": f"^{topic}$", "$options": "i"}, "difficulty": difficulty}
+        if exclude_list: t_query["_id"] = {"$nin": exclude_list}
         results = await adaptive_quizzes_collection.find(t_query).to_list(length=100)
         
         if not results:
             t_query["difficulty"] = "medium"
             results = await adaptive_quizzes_collection.find(t_query).to_list(length=100)
+        
+        results = filter_reps(results)
 
     # 3. Fallback: Broad Lesson Match (Any topic in THIS lesson)
     if not results and "lesson_id" in query:
-        print(f"[TIER 3] Broadening to any question in Lesson {lesson_id}...")
         l_query = {"lesson_id": lesson_id}
+        if exclude_list: l_query["_id"] = {"$nin": exclude_list}
         results = await adaptive_quizzes_collection.find(l_query).to_list(length=100)
+        results = filter_reps(results)
 
-    # 4. Fallback: Module Match (Any question in THIS module)
+    # 4. Fallback: Module/Course Match
     if not results and "module_id" in query:
-        print(f"[TIER 4] Broadening to any question in Module {module_id}...")
         m_query = {"module_id": module_id}
+        if exclude_list: m_query["_id"] = {"$nin": exclude_list}
         results = await adaptive_quizzes_collection.find(m_query).to_list(length=100)
+        results = filter_reps(results)
 
-    # 5. Fallback: Course Match (Any question in THIS course)
-    if not results and "course_id" in query:
-        print(f"[TIER 5] Broadening to any question in Course {course_id}...")
-        c_query = {"course_id": course_id}
-        results = await adaptive_quizzes_collection.find(c_query).to_list(length=100)
-
-    # 6. Safety Net: General Topic Fetch (Ensures ALL videos have quizzes)
+    # 5. Safety Net: General/Global random fetch
     if not results:
-        print(f"[TIER 6] No contextual data found. Fetching high-quality general questions...")
-        results = await adaptive_quizzes_collection.find({"topic": "General"}).to_list(length=100)
+        fallback_query = {"topic": "General"}
+        if exclude_list: fallback_query["_id"] = {"$nin": exclude_list}
+        results = await adaptive_quizzes_collection.find(fallback_query).to_list(length=100)
+        results = filter_reps(results)
 
-    # 7. Final Resort: Any random question (The "Never Fail" rule)
     if not results:
-        print("[TIER 7] Urgent Fallback: Random global fetch...")
-        cursor = adaptive_quizzes_collection.aggregate([{"$sample": {"size": 20}}])
+        # Final Resort: Any random question excluding current session IDs
+        final_query = {}
+        if exclude_list: final_query["_id"] = {"$nin": exclude_list}
+        cursor = adaptive_quizzes_collection.aggregate([{"$match": final_query}, {"$sample": {"size": 20}}])
         results = await cursor.to_list(length=20)
+        results = filter_reps(results)
 
     if not results:
-        return {"error": "No questions found. Please check database connectivity."}
+        return {"error": "No more unique questions available in this session."}
 
     import random
     q = random.choice(results)
-    print(f"[SUCCESS] Selected question ID: {q.get('_id')} (Source Tier reached)")
-
+    
     return {
         "id": str(q["_id"]),
         "question": q["question"],

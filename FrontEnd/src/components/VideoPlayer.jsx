@@ -28,6 +28,12 @@ export default function VideoPlayer({ lesson, nextLesson }) {
   const timeSpentRef = useRef(0);
   const [timeSpent, setTimeSpent] = useState(0);
 
+  const [askedQuizIds, setAskedQuizIds] = useState([]);
+  const [isQuizEnabled, setIsQuizEnabled] = useState(() => {
+    const saved = localStorage.getItem("quizMode");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
   // Adaptive triggers
   const [adaptiveQuizOpen, setAdaptiveQuizOpen] = useState(false);
   const [frustrationPauseOpen, setFrustrationPauseOpen] = useState(false);
@@ -36,6 +42,16 @@ export default function VideoPlayer({ lesson, nextLesson }) {
   const emotionDurationRef = useRef({ emotion: 'neutral', start: Date.now() });
   const quizTriggeredRef = useRef(false);
   const quizTimerRef = useRef(0); // Track play time for 30s quiz trigger
+
+  // Listen for quiz mode changes from navbar
+  useEffect(() => {
+    const handleQuizModeChange = () => {
+      const saved = localStorage.getItem("quizMode");
+      setIsQuizEnabled(saved !== null ? JSON.parse(saved) : true);
+    };
+    window.addEventListener("quizModeChanged", handleQuizModeChange);
+    return () => window.removeEventListener("quizModeChanged", handleQuizModeChange);
+  }, []);
 
   useEffect(() => {
     if (lesson) {
@@ -48,8 +64,6 @@ export default function VideoPlayer({ lesson, nextLesson }) {
     }
   }, [lesson]);
 
-
-
   const startWebcam = async () => {
     try {
       if (isWebcamActiveRef.current) return;
@@ -61,7 +75,8 @@ export default function VideoPlayer({ lesson, nextLesson }) {
       setWebcamEnabled(true);
       isWebcamActiveRef.current = true;
 
-      // Start capturing frames every 10 seconds for emotion analysis
+      // Start capturing frames immediately and then every 10 seconds for emotion analysis
+      captureFrame();
       captureIntervalRef.current = setInterval(captureFrame, 10000);
       console.log("[Webcam] Started - Capturing every 10 seconds");
     } catch (err) {
@@ -120,12 +135,30 @@ export default function VideoPlayer({ lesson, nextLesson }) {
           
           const { x, y, w, h } = res.box;
           // Scale coordinates to match canvas size
-          const scaleX = overlayCanvas.width / video.videoWidth;
-          const scaleY = overlayCanvas.height / video.videoHeight;
+          const vWidth = video.videoWidth || 320;
+          const vHeight = video.videoHeight || 240;
+          const scaleX = overlayCanvas.width / vWidth;
+          const scaleY = overlayCanvas.height / vHeight;
           
           overlayCtx.strokeStyle = res.emotion === 'no_face' ? '#EF4444' : '#10B981'; // red or green
           overlayCtx.lineWidth = 3;
-          overlayCtx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
+          const rectX = x * scaleX;
+          const rectY = y * scaleY;
+          const rectW = w * scaleX;
+          const rectH = h * scaleY;
+          overlayCtx.strokeRect(rectX, rectY, rectW, rectH);
+          
+          // Draw Emotion Name Label
+          overlayCtx.fillStyle = res.emotion === 'no_face' ? '#EF4444' : '#10B981';
+          overlayCtx.font = "bold 14px Inter, system-ui, sans-serif";
+          const label = res.emotion.toUpperCase();
+          const textWidth = overlayCtx.measureText(label).width;
+          
+          // Label background
+          overlayCtx.fillRect(rectX, rectY - 25, textWidth + 10, 20);
+          // Label text
+          overlayCtx.fillStyle = "white";
+          overlayCtx.fillText(label, rectX + 5, rectY - 10);
           
           setFaceBox(res.box);
         } else if (overlayCtx) {
@@ -155,27 +188,6 @@ export default function VideoPlayer({ lesson, nextLesson }) {
               if (videoRef.current) videoRef.current.pause();
             }
           }
-
-          // 2. Adaptive Quiz Triggers
-          // Hard: Happy + Focus > 90 for 30s
-          if (emotion === 'happy' && focus > 90 && duration > 30 && !quizTriggeredRef.current) {
-            setAdaptiveQuizOpen(true);
-            quizTriggeredRef.current = true;
-            if (videoRef.current) videoRef.current.pause();
-          }
-          // Medium: Neutral + Focus > 80 for 60s
-          else if (emotion === 'neutral' && focus > 80 && duration > 60 && !quizTriggeredRef.current) {
-            setAdaptiveQuizOpen(true);
-            quizTriggeredRef.current = true;
-            if (videoRef.current) videoRef.current.pause();
-          }
-          // Easy: Sad for 45s
-          else if (emotion === 'sad' && duration > 45 && !quizTriggeredRef.current) {
-            setAdaptiveQuizOpen(true);
-            quizTriggeredRef.current = true;
-            if (videoRef.current) videoRef.current.pause();
-          }
-
         } else {
           setCurrentEmotion(res.emotion === 'no_face' ? 'No Face' : 'Error');
         }
@@ -184,11 +196,10 @@ export default function VideoPlayer({ lesson, nextLesson }) {
         setCaptureFlash(true);
         setTimeout(() => setCaptureFlash(false), 200);
 
-        // Always log to database on every 30-second interval capture
+        // Always log to database on every 10-second interval capture (syncing with standard loop)
         if (lesson && lesson.id && user) {
           const userId = user._id || user.id;
           if (userId) {
-            console.log("[Emotion System] Logged new exact 30s capture to DB!");
             await learningApi.logEmotion(
               userId,
               lesson.id,
@@ -197,6 +208,7 @@ export default function VideoPlayer({ lesson, nextLesson }) {
             );
           }
         }
+
       }
     } catch (err) {
       console.error("Emotion analysis failed via api:", err);
@@ -273,21 +285,21 @@ export default function VideoPlayer({ lesson, nextLesson }) {
         const total = timeSpentRef.current + currentSession;
         setTimeSpent(total);
         
-        // 30 Seconds Quiz Trigger (Active Play Time)
-        quizTimerRef.current += 1;
-        if (quizTimerRef.current >= 30) {
-          quizTimerRef.current = 0; // Reset for next interval
-          
-          const emotion = currentEmotion.toLowerCase();
-          // Skip if angry/frustrated (handled by frustration logic) or no face
-          if (emotion === 'angry' || emotion === 'frustrated' || emotion === 'no face' || emotion === 'error') {
-            console.log("[Quiz System] Skipping quiz due to state:", emotion);
-          } else {
-            console.log("[Quiz System] 30s trigger reached. Launching quiz...");
-            setAdaptiveQuizOpen(true);
-            if (videoRef.current) videoRef.current.pause();
+          // 30 Seconds Quiz Trigger (Active Play Time)
+          quizTimerRef.current += 1;
+          if (quizTimerRef.current >= 30 && isQuizEnabled) {
+            quizTimerRef.current = 0; // Reset for next interval
+            
+            const emotion = currentEmotion.toLowerCase();
+            // Skip if angry/frustrated (handled by frustration logic) or no face
+            if (emotion === 'angry' || emotion === 'frustrated' || emotion === 'no face' || emotion === 'error') {
+              console.log("[Quiz System] Skipping quiz due to state:", emotion);
+            } else {
+              console.log("[Quiz System] 30s trigger reached. Launching quiz...");
+              setAdaptiveQuizOpen(true);
+              if (videoRef.current) videoRef.current.pause();
+            }
           }
-        }
 
         // Poll sync session active duration strictly every 30 seconds to the DB natively
         if (total > 0 && total % 30 === 0 && sessionIdRef.current) {
@@ -298,7 +310,7 @@ export default function VideoPlayer({ lesson, nextLesson }) {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, adaptiveQuizOpen, frustrationPauseOpen, currentEmotion]);
+  }, [isPlaying, adaptiveQuizOpen, frustrationPauseOpen, currentEmotion, isQuizEnabled]);
 
   // Tab switching protection
   useEffect(() => {
@@ -459,6 +471,8 @@ export default function VideoPlayer({ lesson, nextLesson }) {
         currentEmotion={currentEmotion.toLowerCase()}
         focusScore={timeSpent > 0 ? 85 : 0} // Mocking current focus for now
         userId={user?.id || user?._id}
+        askedQuizIds={askedQuizIds}
+        onQuestionFetched={(id) => setAskedQuizIds(prev => [...prev, id])}
       />
 
       <FrustrationPause 

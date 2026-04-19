@@ -28,6 +28,19 @@ export default function TopNavbar() {
   const searchRef = useRef(null);
   const navigate = useNavigate();
 
+  const [isQuizEnabled, setIsQuizEnabled] = useState(() => {
+    const saved = localStorage.getItem("quizMode");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  const toggleQuizMode = () => {
+    const newState = !isQuizEnabled;
+    setIsQuizEnabled(newState);
+    localStorage.setItem("quizMode", JSON.stringify(newState));
+    // Dispatch a custom event so other components (like LessonView) can respond instantly
+    window.dispatchEvent(new Event("quizModeChanged"));
+  };
+
   const toggleMode = () => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
@@ -191,6 +204,25 @@ export default function TopNavbar() {
       {/* Right side actions */}
       <div className="flex items-center gap-6">
         
+        {/* Quiz Toggle Component */}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-glass-base rounded-full border border-glass-border">
+          <span className="text-[10px] font-bold text-text-subtle uppercase tracking-widest hidden lg:block">Quiz Mode</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-bold ${isQuizEnabled ? 'text-brand-500' : 'text-text-muted'}`}>
+              {isQuizEnabled ? 'ON' : 'OFF'}
+            </span>
+            <button 
+              onClick={toggleQuizMode}
+              className={`w-9 h-5 rounded-full p-1 transition-colors relative ${isQuizEnabled ? 'bg-brand-500/20' : 'bg-glass-border'}`}
+            >
+              <motion.div 
+                animate={{ x: isQuizEnabled ? 16 : 0 }}
+                className={`w-3 h-3 rounded-full ${isQuizEnabled ? 'bg-brand-500' : 'bg-text-muted shadow-sm'}`}
+              />
+            </button>
+          </div>
+        </div>
+
         {/* Quick Theme Toggle & Global Color Picker */}
         <div className="relative flex items-center gap-2">
           

@@ -24,7 +24,7 @@ export function cn(...inputs) {
 }
 
 const SIDEBAR_ITEMS = [
-  { name: "Progress Dashboard", path: "/student-dashboard", icon: LayoutDashboard },
+  { name: "Dashboard", path: "/student-dashboard", icon: LayoutDashboard },
   { name: "Learning", path: "/courses", icon: BookOpen },
   { name: "Progress", path: "/progress", icon: TrendingUp },
   { name: "Smart Reader", path: "/reader", icon: FileText },
